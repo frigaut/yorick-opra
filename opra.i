@@ -27,24 +27,41 @@ nmodes_max4printout = 40;
 
 OPRA_VERSION = "1.0";
 
-func opra(images,defocs,lambda,pixsize,teldiam,nmodes=,use_mode=,cobs=,
-          noise=,pupd=,otf_dim=,progressive=,niter=,fix_amp=,first_nofit_astig=,
-          fix_pix=,fix_kern=,fix_defoc=,dpi=,winnum=,pal=)
+func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
+          noise=, pupd=, otf_dim=, progressive=, niter=, fix_amp=, fix_pix=,
+          fix_kern=, fix_defoc=, first_nofit_astig=, winnum=, dpi=, pal=,
+          yao_parfile=)
 /* DOCUMENT opra(images,defocs,nmodes=,use_mode=)
-   images:  Image data cube (data). These must be at least shannon sampled,
-            ideally 2x shannon or more.
-   defocs:  Vector of estimate of defoc for each image (in radians)
-   lambda:  Image wavelength (meter)
-   pixsize: Image pixel size (arcsec)
-   teldiam: Telescope (optics) diameter (meter)
-   nmodes=  Number of modes to include in the phase estimate (default 120)
-   use_mode= can be set to 'zernike' or 'disk_harm' of 'kl' modes (default KL).
-   cobs=    Optics central obstruction, in unit of optics outer diameter
-            (i.e. 0.1 would mean the central obstruction diameter is
-             10% of the optics/pupil/telescope outer diameter). Default 0.
-   noise=   rms of noise in input images (one number, it is assumed the noise
-            is the same in all images). This is just used for display, not
-            used in the phase estimation. Default 0.
+   images:         Image data cube (data). These must be at least shannon sampled,
+                   ideally 2x shannon or more.
+   defocs:         Vector of estimate of defoc for each image (in radians)
+   lambda:         Image wavelength (meter)
+   pixsize:        Image pixel size (arcsec)
+   teldiam:        Telescope (optics) diameter (meter)
+   nmodes=         Number of modes to include in the phase estimate (default 120)
+   use_mode=       Can be set to 'zernike' or 'dh' of 'kl' modes (default DH).
+                   This can also be set to 'yao' for use of yao machinery
+   cobs=           Optics central obstruction, in unit of optics outer diameter
+                   (i.e. 0.1 would mean the central obstruction diameter is
+                   10% of the optics/pupil/telescope outer diameter). Default 0.
+   noise=          rms of noise in input images (one number, it is assumed the noise
+                   is the same in all images). This is just used for display, not
+                   used in the phase estimation. Default 0.
+   pupd=           Force pupil diameter in pixels
+   otf_dim=        ?
+   progressive=    Introduce modes slower than regular version (more steps)
+   niter=          Set maximum number of iteration
+   fix_amp=        1 if image intensity should not be a free parameter
+   fix_pix=        1 if pixel size should not be a free parameter
+   fix_kern=       1 if gaussian kernel size should not be a free parameter
+   fix_defoc=      1 if defoc from image to image should not be a free parameter
+                   Note that only the global multiplier to the provided defoc
+                   values is ever adjusted.
+   first_nofit_astig= 1 if astig should not belong to the initial run
+   winnum=         Output graphical window number
+   dpi=            Output graphical window dpi
+   pal=            Output graphical window palette
+   yao_parfile=    yao parameter file if using use_mode='yao'
 
    Note: lambda, pixsize and teldiam are only used to get a starting value
    for the pupil diameter (in pixels). Lambda is also used to convert modes
@@ -94,16 +111,22 @@ func opra(images,defocs,lambda,pixsize,teldiam,nmodes=,use_mode=,cobs=,
 
   // number of input images
   opp.nim = dimsof(images)(4);
+
   // side dimension of input images
   opp.im_dim = dimsof(images)(2);
+
   // type of modes used to build the  phase
-  if(use_mode == "zernike" || use_mode == "dh") {opp.modes_type = use_mode;}
-  else opp.modes_type = "kl";
-  //opp.modes_type = (use_zer?"zernike":"kl");
+  if (strpart(use_mode,1:2) == "ze") opp.modes_type = "zernike";
+  else if (use_mode == "kl")  opp.modes_type = "kl";
+  else if (use_mode == "yao") opp.modes_type = "yao";
+  else if (use_mode == "dh")  opp.modes_type = "dh";
+  else error,"use_mode not defined";
+
   // fwhm_estimate is used to compute a starting value for pupil
   // diameter (pupd, in pixels)
   fwhm_estimate = lambda/teldiam/4.848e-6/pixsize;
   opp.pupd = (opp.im_dim/2.)*(2./fwhm_estimate);
+
   // we impose pupd to be integer, and will compensate with the pix size:
   psize_corr = round(opp.pupd)/opp.pupd;
   opp.pupd = psize_corr*opp.pupd;
@@ -116,14 +139,13 @@ func opra(images,defocs,lambda,pixsize,teldiam,nmodes=,use_mode=,cobs=,
 
   if(otf_dim != []) {
     opp.otf_dim = otf_dim;
-    opp.otf_sdim = opp.otf_dim;}
+    opp.otf_sdim = opp.otf_dim;
+  }
 
   opp.coefs = &(array(double,nmodes-1));
 
   opp.cobs = (cobs?cobs:0.);
   op  = array(opra_struct,opp.nim);
-
-  //error;
 
   // normalize
   images = images/sum(images(,,1))(,,-);
@@ -251,18 +273,17 @@ func opra(images,defocs,lambda,pixsize,teldiam,nmodes=,use_mode=,cobs=,
 
 func opra_foo(x,b)
 /* DOCUMENT
-   b=a:
-   a(1)        = support diameter ( sup.diam = pupd+atan(a(1))*5 )
-   a(2)        = gaussian kernel fwhm ( kernel = abs(atan(a(2))*10) )
-   a(3)        = mask diameter in TF plane (due to source)
+   b(1)        = support diameter ( sup.diam = pupd+atan(b(1))*5 )
+   b(2)        = gaussian kernel fwhm ( kernel = abs(atan(b(2))*10) )
+   b(3)        = mask diameter in TF plane (due to source)
                  using a makepupil real (~ TF of apodized round source)
-                 mask diameter = 2*pupd + atan(a(3))*20;
-   a(4)        = foc to defoc defocus (defocus =  atan(a(4))*4 )
-   a(5,6,..,n) = foc -> defoc differential TT (2 terms / image additional to
+                 mask diameter = 2*pupd + atan(b(3))*20;
+   b(4)        = foc to defoc defocus (defocus =  atan(b(4))*4 )
+   b(5,6,..,n) = foc -> defoc differential TT (2 terms / image additional to
                  base image) i.e. regular 2 image problem -> 2 terms,
                  total of 3 images -> 4 terms, etc...
-   a(n+1:n+nim)= sum(data_image)/sum(model_image) for each images
-   a(n+nim+1:) = zernike coefficients (starting at Z2)
+   b(n+1:n+nim)= sum(data_image)/sum(model_image) for each images
+   b(n+nim+1:) = mode coefficients (starting at #2)
    SEE ALSO:
  */
 {

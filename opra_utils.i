@@ -138,15 +138,15 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op)
   fma;
 
   pli,(abs(all));
-  plt,"OTFs (re,im,re,im...)",0.145,0.63,tosys=0,height=10;
+  plt,"OTFs (re,im,re,im...)",0.145,0.635,tosys=0,height=10;
   // plt,"Data",0.130,0.502,orient=1,tosys=0,height=8,justify="CA";
   plt,"Data<- Model ->Diff",0.130,0.535,orient=1,tosys=0,height=8,justify="CA";
   // plt,"Diff",0.130,0.659,orient=1,tosys=0,height=8,justify="CA";
 
-  plt,opp.action,0.145,0.895,tosys=0,height=12;
+  plt,opp.action,0.145,0.90,tosys=0,height=12;
   txt = swrite(format="Iterations: %d/%d, total %d",lmfititer_pass,     \
                lmfit_itmax,lmfititer);
-  plt,txt,0.655,0.895,tosys=0,height=10,justify="RA";
+  plt,txt,0.655,0.90,tosys=0,height=10,justify="RA";
 
   // Images: data and model
   plsys,2;
@@ -188,7 +188,7 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op)
     }
     //    if (hitReturn()=="s") error;
   }
-  plt,"Images",0.145,0.876,tosys=0,height=10;
+  plt,"Images",0.145,0.882,tosys=0,height=10;
 
   // Model phase
   plsys,3;
@@ -207,7 +207,7 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op)
   pli,tmp;
   txt = swrite(format="Phase (%.2f->%.2f rd). Strehl=%.1f%%",iminmax(1),\
                iminmax(2),strehl*100.);
-  plt,txt,0.576,0.63,tosys=0,height=8,justify="CA";
+  plt,txt,0.576,0.635,tosys=0,height=8,justify="CA";
 
   // convergence plot
   grow,itvec,lmfititer;
