@@ -1,0 +1,38 @@
+upgrade to opra-tomo:
+
+The idea is to use the yao framework.
+
+here is how it would go:
+
+1) Define your GS geometry in a parfile (e.g. opra-tomo.par)
+   in this parfile, the GS are listed as WFS. DMs are defined
+   where the DM have to be to solve the tomographic problem.
+   In our case, we may define only the 3 gems DMs, with or without
+   additional DMs if we want to refine the tomography and find aberrations
+   located at other altitudes.
+   Question1: do we also copy the GS in the target structure, to be able to
+   benefit from the yao calcpsf?
+   Question2: we will have issues with the pixel size/support size. The stock
+   opra redefines the modes when it changes the pixel size. hum... we might,
+   for now, work with fixed pixel size and compute the sim.pupildiam from there.
+   But we have the same problem with the wavelength. We might have to fix that
+   too. Alternatively, we may go through another aoinit if the support diameter
+   is changed. After all, ith small support, this may not be very costly.
+
+2) run aoread, aoinit to define wfs & dms
+
+3) Start opra, with some option to indicate we'll be using yao. Can use modes="yao"
+   for now
+
+4) in opra_foo, instead of computing the phase from the modes, we can simply get
+   the phase from yao's DhWfs (or dh coef and recompute the phase).
+   The idea is to minimize the distance between the measured images and the
+   synthetic images generated from yao's phase (or yao's calcpsf, or yao's
+   dh coefs from the WFS), the variables being the DM commands.
+   so in opra-foo, basically, we would like to implement it as:
+   * opra-foo called with regular parameters (pixsize, kernel, coefs)
+   * opra-foo sets dm commands with input coefs, builds mircube
+   * opra-foo calls multWfs() and recover wfs()._fimage in dh/zernike/kl case,
+     this returns the phase. Alternatively, we may loop on calcpsf and directly
+     get the images (if targets have been set).
+   * feed these images to the minimization routine.
