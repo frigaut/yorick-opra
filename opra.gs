@@ -61,7 +61,7 @@ system= { legend= "System 0",
       textStyle= { color= 254, font= 0x08, height= 0.005643,
         orient= 0, alignH= 0, alignV= 0, opaque= 0 }}}}
 system= { legend= "System 0",
-  viewport= { 0.50, 0.66, 0.39, 0.47 },
+  viewport= { 0.50, 0.66, 0.385, 0.465 },
   ticks= {
 
     horiz= {

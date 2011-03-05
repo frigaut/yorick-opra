@@ -15,14 +15,15 @@
  * Mass Ave, Cambridge, MA 02139, USA).
  */
 
-require,"yao.i";          // for zernikes
+//require,"yao.i";          // for zernikes
 require,"opra_lmfit.i";        // for ...lmfit, nodep
 require,"opra_libkl.i";        // for make_kl, nodep
 require,"opra_libdh.i";        // for make_diskharmonic
 // require,"yaodh.i";        // for make_diskharmonic
 require,"opra_utils.i";   // plots, util functions.
 require,"opra_structs.i"; // structures declarations
-nmodes_max4printout = 40;
+
+nmodes_max4printout = 20;
 
 
 OPRA_VERSION = "1.0";
@@ -142,6 +143,23 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     opp.otf_sdim = opp.otf_dim;
   }
 
+  if (use_mode=="yao") {
+    if (!yao_parfile) error,"yao parfile not defined";
+    if (findfiles(yao_parfile)==[]) \
+      error,swrite(format="Can't find yao parfile %s\n",yao_parfile);
+    // else we are good to go.
+    cwd = pwd();
+    cd,"/home/frigaut/mcao/myst/yorick";
+    require,"yao_mcao.i";
+    cd,cwd;
+    aoread,yao_parfile;
+    sim.pupildiam = opp.pupd;
+    aoinit,disp=0,clean=1;
+    nmodes = sum(dm._nact);
+  } else {
+    require,"yao.i";
+  }
+
   opp.coefs = &(array(double,nmodes-1));
 
   opp.cobs = (cobs?cobs:0.);
@@ -178,16 +196,21 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     while ((nm=nm/2)>15) grow,nmodesv,nm;
     nmodesv = _(6,nmodesv(::-1));
     if (niter) {
-      nitv    = array(niter,numberof(nmodesv));//10iteration max (?)
+      nitv    = array(niter,numberof(nmodesv));// 10iteration max (?)
       nitv(2) = niter*2;
     } else {
-      nitv    = array(10,numberof(nmodesv));//10iteration max (?)
+      nitv    = array(10,numberof(nmodesv));// 10iteration max (?)
       nitv(2) = 20;//we want more iterations on the low order aberrations
     }
   } else {
     nmodesv = _(6,nmodes);
-    nitv    = array(10,numberof(nmodesv));//10iteration max (?)
+    nitv    = array(10,numberof(nmodesv));// 10iteration max (?)
     nitv(2) = 30;
+  }
+
+  if (use_mode=="yao") {
+    nmodesv = [nmodes,nmodes];
+    nitv = [10,niter];
   }
   //#################################
   // Let's start !
@@ -231,7 +254,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   // increase nmodes gently
   for (n=2;n<=numberof(nmodesv);n++) {
     aold = sdimold = [];
-    a.coefs = &( _(*a.coefs,array(0,nmodesv(n)-nmodesv(n-1))) );
+    if (use_mode!="yao") a.coefs = &( _(*a.coefs,array(0,nmodesv(n)-nmodesv(n-1))) );
     a.psize = clip(a.psize,-10,10);
     //    *a.coefs = clip(*a.coefs,-10,10);
     opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
@@ -348,23 +371,36 @@ func opra_foo(x,b)
     offset   = ((opp.modes_type=="kl")? 0.5: 1);
 
     //BN 4 tests:
-    offset = 0.5;
+    offset = 0.5; // FR?
+
     //dh are like zernike, they need offset = 1
 
-    opp.pupi = &( make_pupil(opp.otf_dim,a.pupd,                        \
-                             xc=opp.otf_dim/2+offset,                   \
-                             yc=opp.otf_dim/2+offset,                   \
-                             cobs=opp.cobs) );
+    if (use_mode=="yao") {
+      write,"Generating yao modes";
+      sim.pupildiam = opp.pupd;
+      aoinit,disp=0,clean=1;
+      opp.modes = &(array(0.0f,[3,opp.otf_dim,opp.otf_dim,nmodes])); // FIXME for multiple DMs
+      (*opp.modes)(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,) = *dm(1)._def; // FIXME for multiple DMs
+      opp.pupi = &ipupil;
+      opp.pupr = &pupil;
+    } else {
+      write,"Generating modes";
+      opp.modes = &( opra_gen_modes(opp.otf_dim,a.pupd,nmodes,\
+                                    mode_type=opp.modes_type));
+      opp.pupi = &( make_pupil(opp.otf_dim,a.pupd,                        \
+                               xc=opp.otf_dim/2+offset,                   \
+                               yc=opp.otf_dim/2+offset,                   \
+                               cobs=opp.cobs) );
 
-    opp.pupr = &( make_pupil(opp.otf_dim,a.pupd,real=1,                 \
-                             xc=opp.otf_dim/2+offset,                   \
-                             yc=opp.otf_dim/2+offset,                   \
-                             cobs=opp.cobs) );
-    //opp.pupr = opp.pupi;
-    prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset; //needed anyway for added defocus
+      opp.pupr = &( make_pupil(opp.otf_dim,a.pupd,real=1,                 \
+                               xc=opp.otf_dim/2+offset,                   \
+                               yc=opp.otf_dim/2+offset,                   \
+                               cobs=opp.cobs) );
+      //opp.pupr = opp.pupi;
+    }
+    prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
+    // above: needed anyway for added defocus
     // BUG: need to modify xc/yc as using kl???
-    opp.modes = &( opra_gen_modes(opp.otf_dim,a.pupd,nmodes,\
-                                  mode_type=opp.modes_type));
   }
 
   // if source TF mask diameter has changed. Recompute:
@@ -382,7 +418,17 @@ func opra_foo(x,b)
   // Build phase:
   if (*opp.phase==[]) opp.phase = &(array(float,[2,opp.otf_dim,opp.otf_dim]));
   else *opp.phase *= 0.;
-  for (i=2;i<=nmodes;i++) *opp.phase += az(i)*(*opp.modes)(,,i);
+  if (use_mode=="yao") {
+    dm(1)._command = &(float(az));
+    extern mircube;
+    mircube = array(0.0f,[3,sim._size,sim._size,1]);
+    mircube(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,1) = compDmShape(1,dm(1)._command);
+    multWfs,1,disp=0;
+    n12 = wfs(1).n12;
+    (*opp.phase)(n12(1):n12(2),n12(1):n12(2)) = *wfs(1)._fimage;
+  } else {
+    for (i=2;i<=nmodes;i++) *opp.phase += az(i)*(*opp.modes)(,,i);
+  }
 
   // Iteration accounting
   if (lmfititer==[]) lmfititer=0;

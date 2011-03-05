@@ -220,9 +220,9 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op)
     range,min(distvec)*0.98;
     logxy,0,1;
     txt = swrite(format="Convergence crit. (current=%.2e)",distvec(0));
-    plt,txt,0.50,0.479,tosys=0,height=8;
-    plt,"Distance to data",0.471,0.43,tosys=0,orient=1,height=8,justify="CA";
-    plt,"Iteration",0.58,0.362,tosys=0,height=8,justify="CA";
+    plt,txt,0.50,0.474,tosys=0,height=8;
+    plt,"Distance to data",0.471,0.425,tosys=0,orient=1,height=8,justify="CA";
+    plt,"Iteration",0.58,0.357,tosys=0,height=8,justify="CA";
   }
 
   system,"clear";
