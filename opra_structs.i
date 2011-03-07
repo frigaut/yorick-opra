@@ -34,6 +34,7 @@ struct opra_struct     // struct to describe each input plane
 struct oprapar_struct  // one structure to hold all important parameters and results.
 {
   long    nim;         // number of images
+  long    npos;        // number of positions
   pointer coefs;       // modes coefficients
   string  modes_type;  // type of modes ("kl" or "zernikes")
   pointer phase;       // modelled phase map
