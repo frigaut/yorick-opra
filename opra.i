@@ -23,7 +23,7 @@ require,"opra_libdh.i";        // for make_diskharmonic
 require,"opra_utils.i";   // plots, util functions.
 require,"opra_structs.i"; // structures declarations
 
-nmodes_max4printout = 20;
+nmodes_max4printout = 30;
 
 
 OPRA_VERSION = "1.0";
@@ -110,11 +110,17 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   //#################################
   opp = oprapar_struct();
 
+  // we need images to be 4-dimensions:
+  // im_dimx x imdimy x number of defocused images x number of positions
+  if (dimsof(images)(1)==3) images = images(,,,-);
   // number of input images
   opp.nim = dimsof(images)(4);
+  opp.npos = dimsof(images)(5);
 
   // side dimension of input images
   opp.im_dim = dimsof(images)(2);
+
+  if (dimsof(images)(2)!=dimsof(images)(3)) error,"images should be square";
 
   // type of modes used to build the  phase
   if (strpart(use_mode,1:2) == "ze") opp.modes_type = "zernike";
@@ -155,7 +161,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     aoread,yao_parfile;
     sim.pupildiam = opp.pupd;
     aoinit,disp=0,clean=1;
-    nmodes = sum(dm._nact);
+    nmodes = sum(dm._nact-1)+1-2*(ndm-1); // also subtract TT in altitude DMs
   } else {
     require,"yao.i";
   }
@@ -163,22 +169,28 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   opp.coefs = &(array(double,nmodes-1));
 
   opp.cobs = (cobs?cobs:0.);
-  op  = array(opra_struct,opp.nim);
+  op  = array(opra_struct,[2,opp.nim,opp.npos]);
 
   // normalize
-  images = images/sum(images(,,1))(,,-);
-  for (i=1;i<=opp.nim;i++) {
-    op(i).psf_data  = &(images(,,i));
-    op(i).otf_data  = &(get_mtf(images(,,i),opp.otf_sdim));
-    op(i).delta_foc = defocs(i);
-    op(i).noise     = noise;
-  }
-
-  data = (*op(1).otf_data)(,,,-);
-  for (i=2;i<=opp.nim;i++) grow,data,(*op(i).otf_data)(,,,-);
+  images = images/sum(images(,,1,));
   center = opp.otf_sdim/2+1;
-  // get rid of (0,0) frequency information
-  data(center,center,) = 0;
+  data = [];
+  for (n=1;n<=opp.npos;n++) {
+    for (i=1;i<=opp.nim;i++) {
+      op(i,n).psf_data  = &(images(,,i,n));
+      op(i,n).otf_data  = &(get_mtf(images(,,i,n),opp.otf_sdim));
+      // get rid of (0,0) frequency information
+      // (*op(i,n).otf_data)(center,center,1) = 0;
+      grow,data,(*op(i,n).otf_data)(,,,-);
+      op(i,n).delta_foc = defocs(i);
+      op(i,n).noise     = noise;
+    }
+  }
+  data(center,center,,) = 0;
+  // data = (*op(1,1).otf_data)(,,,-);
+  // for (i=2;i<=opp.nim;i++) grow,data,(*op(i).otf_data)(,,,-);
+  // // get rid of (0,0) frequency information
+  // data(center,center,) = 0;
   // now data has dimension dim * dim * 2 (re,im) * nimages
 
   // Trick: to avoid having to put in extern, I have to pass
@@ -210,7 +222,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 
   if (use_mode=="yao") {
     nmodesv = [nmodes,nmodes];
-    nitv = [10,niter];
+    nitv = [6,niter];
   }
   //#################################
   // Let's start !
@@ -236,9 +248,13 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   fit.pupd = 0;
   fit.kernd = 0;
   fit.stfmaskd = 0;
-  (*fit.coefs)(4-1) = 0; // let's not optimize focus at first...
+  if ((use_mode=="dh")|| ((use_mode=="yao") && (dm(1).type="dh"))) {
+    (*fit.coefs)(5-1) = 0; // let's not optimize focus at first...
+  } else (*fit.coefs)(4-1) = 0; // let's not optimize focus at first...
   if (first_nofit_astig) {
-    (*fit.coefs)(5-1) = 0; // and not the astigs either...
+      if ((use_mode=="dh")|| ((use_mode=="yao") && (dm(1).type="dh"))) {
+        (*fit.coefs)(4-1) = 0;
+      } else (*fit.coefs)(5-1) = 0; // and not the astigs either...
     (*fit.coefs)(6-1) = 0; //
   }
 
@@ -249,7 +265,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 
   // call lmfit
   res = lmfit_wrap(opra_foo,x,a,data,opp.nim,fit=fit,\
-                   tol=1e-16,eps=0.01,itmax=nitv(1),aregul=0.);
+                   tol=1e-16,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(1),aregul=0.);
 
   // increase nmodes gently
   for (n=2;n<=numberof(nmodesv);n++) {
@@ -274,7 +290,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 
     // call lmfit
     res = lmfit_wrap(opra_foo,x,a,data,opp.nim,fit=fit,\
-                     tol=1e-7*1e-6,eps=0.01,itmax=nitv(n),aregul=0.);
+                     tol=1e-7*1e-6,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(n),aregul=0.);
     if (opra_debug)                                                     \
       fits_write,"phase.fits",*opp.phase * (*opp.pupi),overwrite=1;
   }
@@ -352,16 +368,6 @@ func opra_foo(x,b)
   //But is that possible with lmfit ?
 
   nmodes = numberof(*a.coefs)+1;
-  az = _(0.,*a.coefs); // az = coef, as noll. az(1) = always piston (kl/zern)
-  //FIXME:
-
-  // Damp coefficients
-  // not used //for (i=2;i<=nmodes;i++) az(i) = atan(az(i))*2./zernumero(i)(1)^1.5;
-
-  //for (i=2;i<=nmodes;i++) az(i) = atan(az(i))*3./zernumero(i)(1)^1.5;
-  //BN commented for test
-
-  //not used //for (i=2;i<=nmodes;i++) az(i) = az(i)/zernumero(i)(1)^2;
 
   if (aold.pupd!=a.pupd) {
     // pupd has changed, need to recompute pupils and possibly modes.
@@ -380,7 +386,7 @@ func opra_foo(x,b)
       sim.pupildiam = opp.pupd;
       aoinit,disp=0,clean=1;
       opp.modes = &(array(0.0f,[3,opp.otf_dim,opp.otf_dim,nmodes])); // FIXME for multiple DMs
-      (*opp.modes)(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,) = *dm(1)._def; // FIXME for multiple DMs
+      // (*opp.modes)(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,) = *dm(1)._def; // not needed w/ yao
       opp.pupi = &ipupil;
       opp.pupr = &pupil;
     } else {
@@ -415,64 +421,98 @@ func opra_foo(x,b)
     //    opp.kernel = &( roll(abs(fft(makegaussian(opp.otf_sdim,a.kernd),1))) );
     opp.kernel = &( makegaussian(opp.otf_sdim,100./(1e-6+a.kernd^2.)) );
 
-  // Build phase:
-  if (*opp.phase==[]) opp.phase = &(array(float,[2,opp.otf_dim,opp.otf_dim]));
-  else *opp.phase *= 0.;
-  if (use_mode=="yao") {
-    dm(1)._command = &(float(az));
-    extern mircube;
-    mircube = array(0.0f,[3,sim._size,sim._size,1]);
-    mircube(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,1) = compDmShape(1,dm(1)._command);
-    multWfs,1,disp=0;
-    n12 = wfs(1).n12;
-    (*opp.phase)(n12(1):n12(2),n12(1):n12(2)) = *wfs(1)._fimage;
-  } else {
-    for (i=2;i<=nmodes;i++) *opp.phase += az(i)*(*opp.modes)(,,i);
-  }
-
   // Iteration accounting
   if (lmfititer==[]) lmfititer=0;
   if (newiter) lmfititer++;
 
   // build PSF, OTF
   all_otf = [];
-  // w_infocus = where(abs(op.delta_foc)==min(abs(op.delta_foc)))(1);
-  // loop on images (defocs)
-  for (i=1;i<=opp.nim;i++) {
-    // compute defoc to add to phase
-    defoc = op(i).delta_foc *  a.defoc_scaling * zernike_ext(4);
-    // compute tiptilt to add to phase
-    if (i>=2) {
-    // if (i!=w_infocus) {
-      tt = (*a.diff_tt)(1,i-1) * zernike_ext(2) +       \
-           (*a.diff_tt)(2,i-1) * zernike_ext(3);
-    } else tt = 0; // no special TT passed for image#1 (TT in "phase")
-    // compute complex wavefront
-    phi     = array(complex,[2,opp.otf_dim,opp.otf_dim]);
-    phi.re  = (*opp.pupr) * cos(*opp.phase + tt + defoc);
-    phi.im  = (*opp.pupr) * sin(*opp.phase + tt + defoc);
-    // compute PSF
-    psf     = roll(abs(fft(phi,1))^2.);
-    // normalize
-    psf     = psf/sum(psf) * (*a.amps)(i);
-    op(i).psf  = &psf;
-    // Note that above, PSF does not reflect the true psf, as the source
-    // mask effect is not included. But we don't need it at each opra_foo()
-    // call, just for display, so I did it in opra_info_and_plots()
-    // compute OTF, include attenuation by blur (kernel) and mask (source size)
-    op(i).otf  = &( get_mtf(psf,opp.otf_sdim ) * \
-                    ((*opp.kernel) * (*opp.stfmask))(,,-) );
-    // Pixel size adjustement:
-    center = opp.otf_sdim/2+1;
-    xy = (indgen(opp.otf_sdim)-center)*a.psize+center;
-    (*op(i).otf)(,,1) = bilinear((*op(i).otf)(,,1),xy,xy,grid=1);
-    (*op(i).otf)(,,2) = bilinear((*op(i).otf)(,,2),xy,xy,grid=1);
-    //    (*op(i).otf)(center,center,) = 0.;
-    // append to previous OTF all object:
-    grow,all_otf,(*op(i).otf)(,,,-);
+
+  if (use_mode=="yao") {
+    // build mircube. we need that only once, irrespective of positions
+    extern mircube;
+    mircube = array(0.0f,[3,sim._size,sim._size,ndm]);
+    i2 = 0;
+    yaz = array(pointer,ndm);
+    ynmodes = array(0,ndm);
+    for (nm=1;nm<=ndm;nm++) {
+      i1 = i2+1;
+      i2 = i1+dm(nm)._nact-2;
+      if (nm>1) i2-=2;
+      // i1;i2;info,*a.coefs;hitReturn;
+      pad = array(0.0f,1);
+      if (nm>1) pad=array(0.0f,3);
+      az = _(pad,(*a.coefs)(i1:i2));
+      yaz(nm) = &az;
+      ynmodes(nm) = numberof(az);
+      dm(nm)._command = &(float(az));
+      mircube(dm(nm)._n1:dm(nm)._n2,dm(nm)._n1:dm(nm)._n2,nm) = compDmShape(nm,dm(nm)._command);
+    }
+    multWfs,1,disp=0;
+  } else {
+    // FIXME multiple positions? nope.
+    az = _(0.,*a.coefs); // az = coef, as noll. az(1) = always piston (kl/zern)
+    for (i=2;i<=nmodes;i++) (*opp.phase)(,,1) += az(i)*(*opp.modes)(,,i);
   }
 
-  if (newiter) opra_info_and_plots,a,*a.amps,az,nmodes,opp,op;
+  // Build phase:
+  if (*opp.phase==[]) opp.phase = &(array(float,[2,opp.otf_dim,opp.otf_dim]));
+
+  // loop on position
+  for (n=1;n<=opp.npos;n++) {
+
+    *opp.phase *= 0.0f;
+
+    if (use_mode=="yao") {
+      n12 = wfs(n).n12;
+      (*opp.phase)(n12(1):n12(2),n12(1):n12(2)) = *wfs(n)._fimage;
+      // tv,*opp.phase; hitReturn;
+    }
+
+    // loop on images (defocs)
+    for (i=1;i<=opp.nim;i++) {
+      // compute defoc to add to phase
+      defoc = op(i,n).delta_foc *  a.defoc_scaling * zernike_ext(4);
+      // compute tiptilt to add to phase
+      if (i>=2) {
+      // if (i!=w_infocus) {
+        tt = (*a.diff_tt)(1,i-1) * zernike_ext(2) +       \
+             (*a.diff_tt)(2,i-1) * zernike_ext(3);
+      } else tt = 0; // no special TT passed for image#1 (TT in "phase")
+      // compute complex wavefront
+      phi     = array(complex,[2,opp.otf_dim,opp.otf_dim]);
+      phi.re  = (*opp.pupr) * cos((*opp.phase) + tt + defoc);
+      phi.im  = (*opp.pupr) * sin((*opp.phase) + tt + defoc);
+      // compute PSF
+      psf     = roll(abs(fft(phi,1))^2.);
+      // normalize
+      psf     = psf/sum(psf) * (*a.amps)(i);
+      op(i,n).psf  = &psf;
+      // Note that above, PSF does not reflect the true psf, as the source
+      // mask effect is not included. But we don't need it at each opra_foo()
+      // call, just for display, so I did it in opra_info_and_plots()
+      // compute OTF, include attenuation by blur (kernel) and mask (source size)
+      op(i,n).otf  = &( get_mtf(psf,opp.otf_sdim ) * \
+                        ((*opp.kernel) * (*opp.stfmask))(,,-) );
+      // Pixel size adjustement:
+      center = opp.otf_sdim/2+1;
+      xy = (indgen(opp.otf_sdim)-center)*a.psize+center;
+      (*op(i,n).otf)(,,1) = bilinear((*op(i,n).otf)(,,1),xy,xy,grid=1);
+      (*op(i,n).otf)(,,2) = bilinear((*op(i,n).otf)(,,2),xy,xy,grid=1);
+      //    (*op(i).otf)(center,center,) = 0.;
+      // append to previous OTF all object:
+      grow,all_otf,(*op(i,n).otf)(,,,-);
+    }
+
+    if (newiter) {
+      if (opp.npos==1) opra_info_and_plots,a,*a.amps,az,nmodes,opp,op;
+      else {
+        // (*opp.modes)(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,) = *dm(1)._def; // not needed w/ yao
+        opra_info_and_plots,a,*a.amps,yaz,ynmodes,opp,op(,n),yao=1;
+        if ((opra_iter%10)==0) hitReturn;
+      }
+    }
+  }
 
   aold = a;
   newiter=0;

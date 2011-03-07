@@ -1,0 +1,4 @@
+#!/bin/sh
+mv opra_test1_data.fits opra_test1_data.fits.save
+\rm *.fits *.ps *.res *.ruo *.rco *~ 2> /dev/null
+mv opra_test1_data.fits.save opra_test1_data.fits

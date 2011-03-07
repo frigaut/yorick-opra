@@ -103,7 +103,7 @@ func fresh_a(nim,ncoefs,val=)
 }
 
 
-func opra_info_and_plots(a,amps,az,nmodes,&opp,&op)
+func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
 /* DOCUMENT opra_info_and_plots()
    This routine is called at each lmfit() new iteration to
    print out the current state of the optimizer and plot
@@ -195,7 +195,8 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op)
   ipupr = long(ceil(a.pupd)/2.)+1;
   // compute phase w/o TT:
   pha = *opp.phase * 0.;
-  for (i=4;i<=nmodes;i++) pha += az(i)*(*opp.modes)(,,i);
+  if (yao) pha = *opp.phase;
+  else for (i=4;i<=nmodes;i++) pha += az(i)*(*opp.modes)(,,i);
   iminmax = minmax(pha(where(*opp.pupi)));
   phase_rms = pha(where(*opp.pupi))(rms);
   strehl = exp(-phase_rms^2.);
@@ -238,8 +239,23 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op)
   write,format="Intensity ratios   : %.2f",(*a.amps)(1);
   for (i=2;i<=opp.nim;i++) write,format=",%.2f",(*a.amps)(i);
   write,"";
-  for (i=2;i<=min(nmodes,nmodes_max4printout);i++) {
-    write,format="a(%2d)              : %+7.0f mrd\n",i,1000*az(i);
+  if (yao) {
+    nmo = max(ynmodes);
+    write,format="%s","DM                 : ";
+    for (nm=1;nm<=ndm;nm++) write,format="%7d  ",nm;
+    write,"";
+    for (i=2;i<=min(nmo,nmodes_max4printout);i++) {
+      write,format="a(%2d) [mrd]        : ",i;
+      for (nm=1;nm<=ndm;nm++) {
+        if (i>ynmodes(nm)) write,format="%s","      -  ";
+        else write,format="%+7.0f  ",1000*(*az(nm))(i);
+      }
+      write,"";
+    }
+  } else {
+    for (i=2;i<=min(nmodes,nmodes_max4printout);i++) {
+      write,format="a(%2d)              : %+7.0f mrd\n",i,1000*az(i);
+    }
   }
 
   ytop = 0.43; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
