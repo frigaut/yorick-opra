@@ -24,9 +24,9 @@ OPRA was developed within the work on the GEMINI MCAO system.
 OPRA, Francois Rigaut (c) 2010-2011
 
 Authors:
-Francois Rigaut    frigaut@gemini.edu
-Benoit Neichel     bneichel@gemini.edu
-Damien Gratadour   damien.gratadour@obspm.fr
+Francois Rigaut    frigaut@gemini.edu  
+Benoit Neichel     bneichel@gemini.edu  
+Damien Gratadour   damien.gratadour@obspm.fr  
 
 
 ## LICENSE
