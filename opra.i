@@ -449,10 +449,6 @@ func opra_foo(x,b)
       mircube(dm(nm)._n1:dm(nm)._n2,dm(nm)._n1:dm(nm)._n2,nm) = compDmShape(nm,dm(nm)._command);
     }
     multWfs,1,disp=0;
-  } else {
-    // FIXME multiple positions? nope.
-    az = _(0.,*a.coefs); // az = coef, as noll. az(1) = always piston (kl/zern)
-    for (i=2;i<=nmodes;i++) (*opp.phase)(,,1) += az(i)*(*opp.modes)(,,i);
   }
 
   // Build phase:
@@ -467,6 +463,10 @@ func opra_foo(x,b)
       n12 = wfs(n).n12;
       (*opp.phase)(n12(1):n12(2),n12(1):n12(2)) = *wfs(n)._fimage;
       // tv,*opp.phase; hitReturn;
+    } else {
+      // FIXME multiple positions? nope.
+      az = _(0.,*a.coefs); // az = coef, as noll. az(1) = always piston (kl/zern)
+      for (i=2;i<=nmodes;i++) (*opp.phase)(,,1) += az(i)*(*opp.modes)(,,i);
     }
 
     // loop on images (defocs)
