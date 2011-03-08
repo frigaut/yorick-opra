@@ -26,7 +26,7 @@ require,"opra_structs.i"; // structures declarations
 nmodes_max4printout = 30;
 
 
-OPRA_VERSION = "1.0";
+OPRA_VERSION = "1.5";
 
 func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
           noise=, pupd=, otf_dim=, progressive=, niter=, fix_amp=, fix_pix=,
