@@ -2,17 +2,17 @@
 
 
 ## WHAT IS IT?
-OPRA (OTF-base Phase Retrieval Analysis) is a phase retrieval
-tool that use phase diversity. That is, you feed it a few images
--in between which you some *phase diversity* has been introduced,
+OPRA (OTF-based Phase Retrieval Analysis) is a phase retrieval
+tool that uses phase diversity. That is, you feed it a few images
+-in between which some *phase diversity* has been introduced,
 namely some focus- and it returns the corresponding phase.
-OPRA specificities are:
+OPRA specificity includes:
 * Instead of minimizing the distance model/measurement in the
   image plane, it does it in the OTF plane.
-* It can use several bases of modes to reconstruct the phase:
+* It can use several basis of modes to reconstruct the phase:
   Disk harmonic (the default), Karhuenen-Loeve or Zernike.
 * It can also work within the yao framework, which allow the user
-  to define more complex conditions/system. In particular, from
+  to define more complex conditions/systems. In particular, from
   v1.5, one can use a set of images to reconstruct the phase
   aberration tomography using a set of modes at various altitudes.
 
@@ -60,9 +60,9 @@ There are a few test cases in the examples directory
 
     yorick -i opra_test1.i
 
-opra_test1.i Is the simplest test case. Using disk harmonics.
-opra_test2.i uses yao, so you'll need yao installed. Same images
-and same phase as opra_test1.i.
+* opra_test1.i Is the simplest test case. Using disk harmonics.
+* opra_test2.i uses yao, so you'll need yao installed. Same images
+  and same phase as opra_test1.i.
 
 For the test cases 3,4, and 5 (tomographic cases), you need to
 generate the data set before running the analysis:
