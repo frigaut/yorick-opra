@@ -7,6 +7,7 @@ tool that uses phase diversity. That is, you feed it a few images
 -in between which some *phase diversity* has been introduced,
 namely some focus- and it returns the corresponding phase.
 OPRA specificity includes:
+
 * Instead of minimizing the distance model/measurement in the
   image plane, it does it in the OTF plane.
 * It can use several basis of modes to reconstruct the phase:
