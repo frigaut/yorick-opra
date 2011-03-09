@@ -14,6 +14,10 @@ grow,imcube,fits_read("opra_test3.focm0.4.fits")(,,,-);
 
 imcube = transpose(imcube,[3,4]);
 
+// imcube(,,2,) = roll(imcube(,,2,),[0,1,0]);
+// imcube(,,3,) = roll(imcube(,,3,),[0,-1,0]);
+// imcube(,,1,2:) = roll(imcube(,,1,2:),[1,-1,0]);
+// imcube(,,2,2) *= 2;
 
 opp = opra(imcube,allfocs,lambda,pixsize,7.9,nmodes=nmodesmax,use_mode=modes,\
   noise=0.0,cobs=0.,progressive=0,first_nofit_astig=0,fix_kern=0,fix_pix=0,\
