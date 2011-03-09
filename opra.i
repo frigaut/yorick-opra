@@ -80,6 +80,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 {
   extern aold, opra_iter, lmfititer;
   extern itvec,distvec;
+  extern owinnum;
 
   //#################################
   // Initialize some general variables
@@ -96,6 +97,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   // create graphic window
   //#################################
   animate,0;
+  owinnum = winnum;
   if (window_exists(winnum)) winkill,winnum;
   if (!dpi) dpi=130;
   window,winnum,wait=1,style="opra.gs",dpi=dpi,width=0,height=0;
@@ -158,10 +160,14 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     cd,"/home/frigaut/mcao/myst/yorick";
     require,"yao_mcao.i";
     cd,cwd;
+    write,"yao aoread() and aoinit()";
     aoread,yao_parfile;
     sim.pupildiam = opp.pupd;
     aoinit,disp=0,clean=1;
     nmodes = sum(dm._nact-1)+1-2*(ndm-1); // also subtract TT in altitude DMs
+    if (window_exists(18)) winkill,18;
+    window,18,style="nobox.gs",width=long(6.*dpi/ndm),height=6*dpi,dpi=dpi,wait=1;
+    window,winnum;
   } else {
     require,"yao.i";
   }
@@ -172,7 +178,8 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   op  = array(opra_struct,[2,opp.nim,opp.npos]);
 
   // normalize
-  images = images/sum(images(,,1,));
+  // images = images/sum(images(,,1,));
+  for (i=1;i<=opp.npos;i++) images(,,,i) = images(,,,i)/sum(images(,,1,i));
   center = opp.otf_sdim/2+1;
   data = [];
   for (n=1;n<=opp.npos;n++) {
@@ -192,6 +199,9 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   // // get rid of (0,0) frequency information
   // data(center,center,) = 0;
   // now data has dimension dim * dim * 2 (re,im) * nimages
+
+  data = float(data(*)); // to save RAM
+  grow,data,array(0,nmodes);
 
   // Trick: to avoid having to put in extern, I have to pass
   // both opp and op to opra_foo (via x). I don't want to copy
@@ -232,7 +242,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   a = fresh_a(opp.nim,nmodesv(1));
   a.kernd = 0.;
   a.stfmaskd = -100.;
-  *a.amps = 1.;
+  // a.amps = &((*a.amps)+1);
 
   //BN addition:
   //a.psize = pixsize;
@@ -248,6 +258,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   fit.pupd = 0;
   fit.kernd = 0;
   fit.stfmaskd = 0;
+
   if ((use_mode=="dh")|| ((use_mode=="yao") && (dm(1).type="dh"))) {
     (*fit.coefs)(5-1) = 0; // let's not optimize focus at first...
   } else (*fit.coefs)(4-1) = 0; // let's not optimize focus at first...
@@ -257,6 +268,10 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
       } else (*fit.coefs)(5-1) = 0; // and not the astigs either...
     (*fit.coefs)(6-1) = 0; //
   }
+
+  // (*fit.diff_tt)(,1,) = 0;
+  (*fit.coefs)(dm(1)._nact+1-3:dm(1)._nact+6-4)=0;
+  // (*fit.coefs)(dm(1)._nact+dm(2)._nact+1-6:dm(1)._nact+dm(2)._nact+6-7)=0;
 
   if (fix_amp) *fit.amps = 0;
   if (fix_pix) fit.psize = 0;
@@ -280,6 +295,10 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     fit = fresh_a(opp.nim,nmodesv(n),val=1);
     fit.pupd = 0;
     fit.stfmaskd = 0;
+
+    // (*fit.diff_tt)(,1,) = 0;
+    (*fit.coefs)(dm(1)._nact+1-3:dm(1)._nact+6-4)=0;
+    // (*fit.coefs)(dm(1)._nact+dm(2)._nact+1-6:dm(1)._nact+dm(2)._nact+6-7)=0;
 
     if (fix_amp) *fit.amps = 0;
     if (fix_pix) fit.psize = 0;
@@ -328,7 +347,8 @@ func opra_foo(x,b)
 {
   extern aold,sdimold;
   extern lmfititer,newiter,opra_iter;
-
+  extern ccc;
+  ccc=b;
   opra_iter++;
   if (aold==[]) {
     aold=opra_a_struct();
@@ -361,7 +381,7 @@ func opra_foo(x,b)
   //if(fix_amp)   *a.amps = 1.;//+atan(*a.amps)*0.6;
   //else  *a.amps = 1.+atan(*a.amps)*0.6;
 
-  *a.amps = 1.+atan(*a.amps)*0.6;
+  a.amps = &(1.+atan(*a.amps)*0.6);
   //if (*a.amps == 0)  *a.amps = 1.0;
   //*a.amps = *a.amps;
   //It could be good to bound properly the parameters.
@@ -474,11 +494,12 @@ func opra_foo(x,b)
       // compute defoc to add to phase
       defoc = op(i,n).delta_foc *  a.defoc_scaling * zernike_ext(4);
       // compute tiptilt to add to phase
-      if (i>=2) {
-      // if (i!=w_infocus) {
-        tt = (*a.diff_tt)(1,i-1) * zernike_ext(2) +       \
-             (*a.diff_tt)(2,i-1) * zernike_ext(3);
-      } else tt = 0; // no special TT passed for image#1 (TT in "phase")
+      // if (i>=2) {
+      if ((n==1)&&(i==1)) tt = 0; // no special TT passed for image#1 (TT in "phase")
+      else {
+        tt = (*a.diff_tt)(1,i,n) * zernike_ext(2) +       \
+             (*a.diff_tt)(2,i,n) * zernike_ext(3);
+      }
       // compute complex wavefront
       phi     = array(complex,[2,opp.otf_dim,opp.otf_dim]);
       phi.re  = (*opp.pupr) * cos((*opp.phase) + tt + defoc);
@@ -486,7 +507,7 @@ func opra_foo(x,b)
       // compute PSF
       psf     = roll(abs(fft(phi,1))^2.);
       // normalize
-      psf     = psf/sum(psf) * (*a.amps)(i);
+      psf     = psf/sum(psf) * (*a.amps)(i,n);
       op(i,n).psf  = &psf;
       // Note that above, PSF does not reflect the true psf, as the source
       // mask effect is not included. But we don't need it at each opra_foo()
@@ -505,11 +526,15 @@ func opra_foo(x,b)
     }
 
     if (newiter) {
-      if (opp.npos==1) opra_info_and_plots,a,*a.amps,az,nmodes,opp,op;
+      if (use_mode!="yao") opra_info_and_plots,a,*a.amps,az,nmodes,opp,op;
       else {
+        window,18;
+        mircube(,,1) *= ipupil;
+        tv,mircube(,*),square=1;
+        window,owinnum;
         // (*opp.modes)(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,) = *dm(1)._def; // not needed w/ yao
         opra_info_and_plots,a,*a.amps,yaz,ynmodes,opp,op(,n),yao=1;
-        if ((opra_iter%10)==0) hitReturn;
+        if ((opra_breakpoint) && (lmfititer%5)==0) hitReturn;
       }
     }
   }
@@ -519,6 +544,13 @@ func opra_foo(x,b)
 
   // get rid of (0,0) frequency information
   all_otf(center,center,) = 0;
+
+  all_otf = float(all_otf(*)); // to save RAM
+  rms1=(all_otf)(rms);
+  rms2 = (*a.coefs)(rms);
+  app = array(0.0f,nmodes);
+  app(1:numberof(*a.coefs)) = (*a.coefs)*3e2*rms1;
+  grow,all_otf,app;
 
   return all_otf;
 }

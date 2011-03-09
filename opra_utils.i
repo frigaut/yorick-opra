@@ -63,7 +63,7 @@ func lmfit_wrap(f,x,&a,y,nim,fit=,tol=,eps=,itmax=,aregul=)
   aregul_i = aregul_i(where(aregul_i));
 
   res = opra_lmfit(f,x,a,y,fit=fit,tol=tol,eps=eps,itmax=itmax,\
-                   aregul=aregul,aregul_i=aregul_i,neval_max=300);
+                   aregul=aregul,aregul_i=aregul_i,neval_max=30);
   a = a_vec2struct(a,nim);
   return res;
 }
@@ -71,7 +71,7 @@ func lmfit_wrap(f,x,&a,y,nim,fit=,tol=,eps=,itmax=,aregul=)
 func a_struct2vec(a)
 {
   return _(a.pupd,a.kernd,a.stfmaskd,a.defoc_scaling,a.psize,   \
-           (*a.diff_tt)(*),*a.amps,*a.coefs);
+           (*a.diff_tt)(*)(3:),(*a.amps)(*),*a.coefs);
 }
 
 
@@ -79,7 +79,7 @@ func a_vec2struct(b,nim)
 {
   extern npbc;
   // Number of Parameter Before (mode) Coefs. (hence the name)
-  npbc = 5  + (opp.nim-1)*2 + opp.nim;
+  npbc = 5 + opp.npos*opp.nim*2 - 2 + opp.npos*opp.nim;
 
   a = opra_a_struct();
   a.pupd          = b(1);
@@ -87,9 +87,10 @@ func a_vec2struct(b,nim)
   a.stfmaskd      = b(3);
   a.defoc_scaling = b(4);
   a.psize         = b(5);
-  diff_tt         = b(6:6+2*(nim-1)-1);
-  a.diff_tt       = &(reform(diff_tt,[2,2,nim-1]));
-  a.amps          = &(b(6+2*(nim-1):6+2*(nim-1)+nim-1));
+  diff_tt         = _(0.,0.,b(6:6+2*opp.npos*nim-2-1));
+  a.diff_tt       = &(reform(diff_tt,[3,2,nim,opp.npos]));
+  amps            = b(6+2*opp.npos*nim-1:6+2*opp.npos*nim-1+opp.npos*nim-1);
+  a.amps          = &(reform(amps,[2,nim,opp.npos]));
   a.coefs         = &(b(npbc+1:));
   return a;
 }
@@ -97,7 +98,7 @@ func a_vec2struct(b,nim)
 func fresh_a(nim,ncoefs,val=)
 {
   if (val==[]) val=0.;
-  np = 5+2*(nim-1)+nim+(ncoefs-1);
+  np = 5+2*opp.npos*nim-2+opp.npos*nim+(ncoefs-1);
   a = array(val,np);
   return a_vec2struct(a,nim);
 }
@@ -228,24 +229,35 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
 
   system,"clear";
   write,format="%s\n",pass_action;
-  write,format="lmfit Iteration#   : %d\n",lmfititer;
-  write,format="Pass through foo2  : %d\n",opraiter;
-  write,format="Support diameter   : %.2f\n",a.pupd;
-  write,format="Kernel [pixels]    : %.2f\n",a.kernd;
-  write,format="Mask diameter      : %.2f\n",a.stfmaskd;
-  write,format="foc-defoc defocus  : %.2f\n",a.defoc_scaling;
-  write,format="Pixel size scaling : %.2f\n",a.psize;
-  //  write,format="foc-defoc tiptilt  : %.2f,%.2f\n",a(5),a(6);
-  write,format="Intensity ratios   : %.2f",(*a.amps)(1);
-  for (i=2;i<=opp.nim;i++) write,format=",%.2f",(*a.amps)(i);
-  write,"";
+  write,format="lmfit Iteration#        : %d\n",lmfititer;
+  write,format="Pass through foo2       : %d\n",opraiter;
+  write,format="Support diameter        : %.2f\n",a.pupd;
+  write,format="Kernel [pixels]         : %.2f\n",a.kernd;
+  write,format="Mask diameter           : %.2f\n",a.stfmaskd;
+  write,format="foc-defoc defocus       : %.2f\n",a.defoc_scaling;
+  write,format="Pixel size scaling      : %.2f\n",a.psize;
+  if (!opra_brief_printout) {
+    for (i=1;i<=opp.npos;i++) {
+      write,format="Diff. TT (imset%d) [pix] : Tip: ",i;
+      for (j=1;j<=opp.nim;j++) write,format="%+.2f ",(*a.diff_tt)(1,j,i);
+      write,format="%s","| Tilt: ";
+      for (j=1;j<=opp.nim;j++) write,format="%+.2f ",(*a.diff_tt)(2,j,i);
+      write,"";
+    }
+    //  write,format="foc-defoc tiptilt  : %.2f,%.2f\n",a(5),a(6);
+    for (i=1;i<=opp.npos;i++) {
+      write,format="Intens. ratii (imset%d)  : %.2f",i,(*a.amps)(1,i);
+      for (j=2;j<=opp.nim;j++) write,format=",%.2f",(*a.amps)(j,i);
+      write,"";
+    }
+  }
   if (yao) {
     nmo = max(ynmodes);
-    write,format="%s","DM                 : ";
+    write,format="%s","DM                      : ";
     for (nm=1;nm<=ndm;nm++) write,format="%7d  ",nm;
     write,"";
     for (i=2;i<=min(nmo,nmodes_max4printout);i++) {
-      write,format="a(%2d) [mrd]        : ",i;
+      write,format="a(%2d) [mrd]             : ",i;
       for (nm=1;nm<=ndm;nm++) {
         if (i>ynmodes(nm)) write,format="%s","      -  ";
         else write,format="%+7.0f  ",1000*(*az(nm))(i);
@@ -254,7 +266,7 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
     }
   } else {
     for (i=2;i<=min(nmodes,nmodes_max4printout);i++) {
-      write,format="a(%2d)              : %+7.0f mrd\n",i,1000*az(i);
+      write,format="a(%2d)                   : %+7.0f mrd\n",i,1000*az(i);
     }
   }
 
