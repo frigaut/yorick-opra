@@ -228,7 +228,7 @@ func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
     pha = *opp.phase;
     // remove TT (only on first DM):
     c = float(*(*a.coefs)(1));
-    c(3:) = 0;
+    c(4:) = 0;
     tt = compDmShape(1,&c);
     pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
   } else for (i=4;i<=nmodes;i++) pha += az(i)*(*opp.modes)(,,i);
@@ -250,8 +250,8 @@ func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
   otf_diff = [];
   for (i=1;i<=opp.nim;i++) grow,otf_diff,(*op(i).otf_data-*op(i).otf)(*);
   if (star==1) grow,distvec,(otf_diff)(rms);
-  else distvec += (otf_diff)(rms);
-  if (numberof(itvec)>=2) {
+  else distvec(0) += (otf_diff)(rms);
+  if ((numberof(itvec)>=2)&&(star==opp.npos)) {
     plsys,4;
     plh,distvec,itvec;
     range,min(distvec)*0.98;
