@@ -30,8 +30,8 @@ OPRA_VERSION = "1.5";
 
 func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
           noise=, pupd=, otf_dim=, progressive=, niter=, fix_amp=, fix_pix=,
-          fix_kern=, fix_defoc=, first_nofit_astig=, winnum=, dpi=, pal=,
-          yao_parfile=)
+          fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, winnum=,
+          dpi=, pal=, yao_parfile=)
 /* DOCUMENT opra(images,defocs,nmodes=,use_mode=)
    images:         Image data cube (data). These must be at least shannon sampled,
                    ideally 2x shannon or more.
@@ -58,6 +58,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
    fix_defoc=      1 if defoc from image to image should not be a free parameter
                    Note that only the global multiplier to the provided defoc
                    values is ever adjusted.
+   fix_diff_tt=    1 if differential TT between images shoud not be a free parameter
    first_nofit_astig= 1 if astig should not belong to the initial run
    winnum=         Output graphical window number
    dpi=            Output graphical window dpi
@@ -153,8 +154,9 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     opp.ncoefs = sum(dm._nact);
     opp.ncoef_per_dm = &dm._nact;
     opp.ndm = ndm;
+    dpi2 = long(dpi*ndm/3.);
     if (window_exists(winnum-1)) winkill,winnum-1;
-    window,winnum-1,style="nobox.gs",width=long(6.*dpi/ndm),height=6*dpi,dpi=dpi,wait=1;
+    window,winnum-1,style="nobox.gs",width=long(6.*dpi2/ndm),height=6*dpi2,dpi=dpi2,wait=1;
 
   } else {
     require,"yao.i";
@@ -253,6 +255,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   if (fix_defoc) fit.defoc_scaling = 0;
   // We want to peg first in-focus image:
   (*fit.diff_tt)(,1,1) = 0;
+  if (fix_diff_tt) (*fit.diff_tt) = 0;
 
 
   // we want to filter focus at first.
@@ -306,6 +309,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     if (fix_kern)  fit.kernd = 0;
     if (fix_defoc) fit.defoc_scaling = 0;
     (*fit.diff_tt)(,1,1) = 0;
+    if (fix_diff_tt) (*fit.diff_tt) = 0;
 
 
     // we want to filter focus at first.
@@ -319,7 +323,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 
     // call lmfit
     res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
-                     tol=1e-6,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(n),aregul=0.);
+                     tol=1e-12,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(n),aregul=0.);
     if (opra_debug)                                                     \
       fits_write,"phase.fits",*opp.phase * (*opp.pupi),overwrite=1;
   }
@@ -328,7 +332,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     fits_write,"phase.fits",*opp.phase * (*opp.pupi),overwrite=1;
 
   write,format="Elapsed time = %f sec\n",tac();
-  animate,0;
+
   opp.coefs=&(*a.coefs);
   return opp;
 }
@@ -407,6 +411,8 @@ func opra_foo(x,b)
       aoinit,disp=0,clean=1;
       opp.pupi = &ipupil;
       opp.pupr = &pupil;
+      prepzernike,sim._size,sim.pupildiam,sim._cent,sim._cent;
+      // prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
     } else {
       write,"Generating modes";
       opp.modes = &( opra_gen_modes(opp.otf_dim,a.pupd,nmodes,\
@@ -421,8 +427,8 @@ func opra_foo(x,b)
                                yc=opp.otf_dim/2+offset,                   \
                                cobs=opp.cobs) );
       //opp.pupr = opp.pupi;
+      prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
     }
-    prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
     // above: needed anyway for added defocus
     // FIXME: need to modify xc/yc as using kl???
   }
@@ -536,7 +542,8 @@ func opra_foo(x,b)
   rms1=(all_otf)(rms);
   app = [];
   for (nm=1;nm<=opp.ndm;nm++) grow,app,(*(*a.coefs)(nm));
-  app = app*rms1*numberof(all_otf)/numberof(app)*1e-3;
+  if (opra_coef_regul==[]) opra_coef_regul=1e-3;
+  app = app*rms1*numberof(all_otf)/numberof(app)*opra_coef_regul;
   // app = app*3e-3*rms1;
   // sum(all_otf); app(rms);
   if (opp.npos>1) grow,all_otf,app;
