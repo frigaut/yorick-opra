@@ -35,8 +35,12 @@ struct oprapar_struct  // one structure to hold all important parameters and res
 {
   long    nim;         // number of images
   long    npos;        // number of positions
+  long    ndm;         // number of DM (for yao mode)
+  long    ncoefs;      // total number of coefs
+  pointer ncoef_per_dm; // pointer to vector that contains # of coefs (actuator/modes) per dm
+                       // example: ncoefsperdm = &([45,45,25]);
   pointer coefs;       // modes coefficients
-  string  modes_type;  // type of modes ("kl" or "zernikes")
+  string  modes_type;  // type of modes ("kl", "zernikes", "dh" or "yao")
   pointer phase;       // modelled phase map
   long    im_dim;      // images size
   long    otf_dim;     // OTF size for OTF calculations
@@ -51,6 +55,7 @@ struct oprapar_struct  // one structure to hold all important parameters and res
   pointer dist_v;      // distance (data-model rms)
   pointer stfmask;     // source TF mask array
   pointer kernel;      // Blur kernel array
+  long    winnum;
 };
 
 struct opra_a_struct   // holds variables passed to opra_foo()

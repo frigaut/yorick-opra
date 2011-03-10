@@ -80,49 +80,38 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 {
   extern aold, opra_iter, lmfititer;
   extern itvec,distvec;
-  extern owinnum;
 
   //#################################
   // Initialize some general variables
   //#################################
-  if (!nmodes) nmodes = 120;
-  if (winnum==[]) winnum=0;
-  if (!noise) noise=0.;
+  if (!nmodes)    nmodes = 120;
+  if (winnum==[]) winnum = 1;
+  if (!noise)     noise = 0.;
+  if (!dpi)       dpi = 130;
   itvec = distvec = [];
   opra_iter = lmfititer = 0;
   passn = 1;
   tic;
 
   //#################################
-  // create graphic window
-  //#################################
-  animate,0;
-  owinnum = winnum;
-  if (window_exists(winnum)) winkill,winnum;
-  if (!dpi) dpi=130;
-  window,winnum,wait=1,style="opra.gs",dpi=dpi,width=0,height=0;
-  if (pal) palette,pal;
-  animate,0;
-  plsys,1; limits,square=1;
-  plsys,2; limits,square=1;
-  plsys,3; limits,square=1;
-
-  //#################################
   // fill structures and prepare data
   //#################################
-  opp = oprapar_struct();
-
   // we need images to be 4-dimensions:
   // im_dimx x imdimy x number of defocused images x number of positions
   if (dimsof(images)(1)==3) images = images(,,,-);
-  // number of input images
-  opp.nim = dimsof(images)(4);
-  opp.npos = dimsof(images)(5);
-
-  // side dimension of input images
-  opp.im_dim = dimsof(images)(2);
-
   if (dimsof(images)(2)!=dimsof(images)(3)) error,"images should be square";
+
+  // Normalize so that regularization and stop criteria are
+  // independent of the data:
+  images = images/sum(images(*));
+
+  opp = oprapar_struct();
+
+  opp.nim      = dimsof(images)(4);  // number of input images
+  opp.npos     = dimsof(images)(5);  // number of input positions
+  opp.im_dim   = dimsof(images)(2);  // side dimension of input images
+  opp.winnum   = winnum;
+
 
   // type of modes used to build the  phase
   if (strpart(use_mode,1:2) == "ze") opp.modes_type = "zernike";
@@ -139,23 +128,19 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   // we impose pupd to be integer, and will compensate with the pix size:
   psize_corr = round(opp.pupd)/opp.pupd;
   opp.pupd = psize_corr*opp.pupd;
-
-  if(pupd != []) opp.pupd = pupd;
+  if (pupd) opp.pupd = pupd;
 
   opp.otf_sdim = long(2*opp.pupd*1.1)/2*2;
   opp.otf_sdim = long(2*opp.pupd*1.02)/2*2;
   opp.otf_dim  = long(2^ceil(log(opp.otf_sdim)/log(2)));
-
-  if(otf_dim != []) {
-    opp.otf_dim = otf_dim;
-    opp.otf_sdim = opp.otf_dim;
-  }
+  if(otf_dim) opp.otf_dim = opp.otf_sdim = otf_dim;
 
   if (use_mode=="yao") {
     if (!yao_parfile) error,"yao parfile not defined";
     if (findfiles(yao_parfile)==[]) \
       error,swrite(format="Can't find yao parfile %s\n",yao_parfile);
     // else we are good to go.
+    // FIXME : use regular yao.
     cwd = pwd();
     cd,"/home/frigaut/mcao/myst/yorick";
     require,"yao_mcao.i";
@@ -164,44 +149,54 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     aoread,yao_parfile;
     sim.pupildiam = opp.pupd;
     aoinit,disp=0,clean=1;
-    nmodes = sum(dm._nact-1)+1-2*(ndm-1); // also subtract TT in altitude DMs
-    if (window_exists(18)) winkill,18;
-    window,18,style="nobox.gs",width=long(6.*dpi/ndm),height=6*dpi,dpi=dpi,wait=1;
-    window,winnum;
+    // nmodes = sum(dm._nact-1)+1-2*(ndm-1); // also subtract TT in altitude DMs
+    opp.ncoefs = sum(dm._nact);
+    opp.ncoef_per_dm = &dm._nact;
+    opp.ndm = ndm;
+    if (window_exists(winnum-1)) winkill,winnum-1;
+    window,winnum-1,style="nobox.gs",width=long(6.*dpi/ndm),height=6*dpi,dpi=dpi,wait=1;
+
   } else {
     require,"yao.i";
+    opp.ncoefs = nmodes;
+    opp.ncoef_per_dm = &([opp.ncoefs]);
+    opp.ndm = 1;
   }
 
-  opp.coefs = &(array(double,nmodes-1));
+  //#################################
+  // create graphic windows
+  //#################################
+  for (n=1;n<=opp.npos;n++) {
+    winn = winnum+n-1;
+    if (window_exists(winn)) winkill,winn;
+    window,winn,wait=1,style="opra.gs",dpi=dpi,width=0,height=0;
+    if (pal) palette,pal;
+    for (i=1;i<=3;i++) { plsys,i; limits,square=1; }
+  }
 
   opp.cobs = (cobs?cobs:0.);
   op  = array(opra_struct,[2,opp.nim,opp.npos]);
 
   // normalize
-  // images = images/sum(images(,,1,));
   for (i=1;i<=opp.npos;i++) images(,,,i) = images(,,,i)/sum(images(,,1,i));
+
   center = opp.otf_sdim/2+1;
   data = [];
+
   for (n=1;n<=opp.npos;n++) {
     for (i=1;i<=opp.nim;i++) {
       op(i,n).psf_data  = &(images(,,i,n));
       op(i,n).otf_data  = &(get_mtf(images(,,i,n),opp.otf_sdim));
       // get rid of (0,0) frequency information
-      // (*op(i,n).otf_data)(center,center,1) = 0;
       grow,data,(*op(i,n).otf_data)(,,,-);
       op(i,n).delta_foc = defocs(i);
       op(i,n).noise     = noise;
     }
   }
   data(center,center,,) = 0;
-  // data = (*op(1,1).otf_data)(,,,-);
-  // for (i=2;i<=opp.nim;i++) grow,data,(*op(i).otf_data)(,,,-);
-  // // get rid of (0,0) frequency information
-  // data(center,center,) = 0;
-  // now data has dimension dim * dim * 2 (re,im) * nimages
 
-  data = float(data(*)); // to save RAM
-  grow,data,array(0,nmodes);
+  data = float(data(*)); // float to save RAM
+  if (opp.npos>1) grow,data,array(0.0f,opp.ncoefs);
 
   // Trick: to avoid having to put in extern, I have to pass
   // both opp and op to opra_foo (via x). I don't want to copy
@@ -214,7 +209,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 
   if (progressive) {
     // set up progression in # modes (geometric, factor 2):
-    nmodesv = nm = nmodes;
+    nmodesv = nm = opp.ncoefs;
     while ((nm=nm/2)>15) grow,nmodesv,nm;
     nmodesv = _(6,nmodesv(::-1));
     if (niter) {
@@ -225,100 +220,110 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
       nitv(2) = 20;//we want more iterations on the low order aberrations
     }
   } else {
-    nmodesv = _(6,nmodes);
+    nmodesv = _(6,opp.ncoefs);
     nitv    = array(10,numberof(nmodesv));// 10iteration max (?)
     nitv(2) = 30;
   }
 
-  if (use_mode=="yao") {
-    nmodesv = [nmodes,nmodes];
+  if (use_mode=="yao") { // Can't do progressive with yao (see comment below)
+    nmodesv = [opp.ncoefs,opp.ncoefs];
+    // above: has to be, we don't know "modes" are modal (could be zonal)
     nitv = [6,niter];
   }
+
   //#################################
   // Let's start !
   //#################################
   // See the parameters descriptions in DOCUMENT section of opra_foo.
   // initialize "a" (the coefficients to find)
-  a = fresh_a(opp.nim,nmodesv(1));
-  a.kernd = 0.;
+  a = fresh_a(opp);
+  a.kernd    = 0.;
   a.stfmaskd = -100.;
-  // a.amps = &((*a.amps)+1);
-
-  //BN addition:
-  //a.psize = pixsize;
-  //*a.amps = array(1,dimsof(images)(4));
-  //a.defoc_scaling = 1.;
-
-
   opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                       passn++,nmodesv(1));
 
-  // filter some parameters
-  fit = fresh_a(opp.nim,nmodesv(1),val=1);
-  fit.pupd = 0;
-  fit.kernd = 0;
+  // filter some parameters. Use fit keyword of lmfit.
+  fit = fresh_a(opp,val=1);
+  fit.pupd     = 0;
+  fit.kernd    = 0;
   fit.stfmaskd = 0;
+  if (fix_amp)   *fit.amps = 0;
+  if (fix_pix)   fit.psize = 0;
+  if (fix_kern)  fit.kernd = 0;
+  if (fix_defoc) fit.defoc_scaling = 0;
+  // We want to peg first in-focus image:
+  (*fit.diff_tt)(,1,1) = 0;
 
-  if ((use_mode=="dh")|| ((use_mode=="yao") && (dm(1).type="dh"))) {
-    (*fit.coefs)(5-1) = 0; // let's not optimize focus at first...
-  } else (*fit.coefs)(4-1) = 0; // let's not optimize focus at first...
-  if (first_nofit_astig) {
-      if ((use_mode=="dh")|| ((use_mode=="yao") && (dm(1).type="dh"))) {
-        (*fit.coefs)(4-1) = 0;
-      } else (*fit.coefs)(5-1) = 0; // and not the astigs either...
-    (*fit.coefs)(6-1) = 0; //
+
+  // we want to filter focus at first.
+  // Note that focus is a different mode depending to modal basis.
+  // we want to filter TT on altitude DM when using yao, and piston on all.
+  if (use_mode=="yao") {
+    for (nm=1;nm<=ndm;nm++){
+      (*(*fit.coefs)(nm))(1) = 0; // filter Piston
+      // filter focus:
+      if (dm(nm).type="dh") (*(*fit.coefs)(nm))(5) = 0;
+      else (*(*fit.coefs)(nm))(4) = 0;
+      // filter astig on altitude DMs:
+      if (nm>1) {
+        if (dm(nm).type="dh") (*(*fit.coefs)(nm))([4,6]) = 0;
+        else (*(*fit.coefs)(nm))([5,6]) = 0;
+      }
+      // filter TT on altitude DMs:
+      if (nm>1) (*(*fit.coefs)(nm))(1:3) = 0;
+    }
+  } else {
+    (*(*fit.coefs)(1))(1) = 0; // filter piston
+    // filter focus:
+    if (use_mode=="dh") (*(*fit.coefs)(1))(5) = 0; // for DH
+    else (*(*fit.coefs)(1))(4) = 0; // for zernike & KL
+    // Filter astigmatism if requested:
+    if (first_nofit_astig) {
+      if (use_mode=="dh") (*(*fit.coefs)(1))([4,6]) = 0; // for DH
+      else (*(*fit.coefs)(1))([5,6]) = 0; // for zernike & KL
+    }
   }
 
-  // (*fit.diff_tt)(,1,) = 0;
-  (*fit.coefs)(dm(1)._nact+1-3:dm(1)._nact+6-4)=0;
-  // (*fit.coefs)(dm(1)._nact+dm(2)._nact+1-6:dm(1)._nact+dm(2)._nact+6-7)=0;
-
-  if (fix_amp) *fit.amps = 0;
-  if (fix_pix) fit.psize = 0;
-  if (fix_kern) fit.kernd = 0;
-  if (fix_defoc) fit.defoc_scaling = 0;
-
   // call lmfit
-  res = lmfit_wrap(opra_foo,x,a,data,opp.nim,fit=fit,\
-                   tol=1e-16,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(1),aregul=0.);
+  res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
+                   tol=1e-6,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(1),aregul=0.);
+
 
   // increase nmodes gently
   for (n=2;n<=numberof(nmodesv);n++) {
     aold = sdimold = [];
-    if (use_mode!="yao") a.coefs = &( _(*a.coefs,array(0,nmodesv(n)-nmodesv(n-1))) );
-    a.psize = clip(a.psize,-10,10);
-    //    *a.coefs = clip(*a.coefs,-10,10);
+    if (use_mode!="yao") (*a.coefs)(1) = &( _(*(*a.coefs)(1),array(0,nmodesv(n)-nmodesv(n-1))) );
+    // a.psize = clip(a.psize,-10,10);
     opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                         passn++,nmodesv(n));
 
     // filter some parameters
-    fit = fresh_a(opp.nim,nmodesv(n),val=1);
-    fit.pupd = 0;
+    fit = fresh_a(opp,val=1);
+    fit.pupd     = 0;
     fit.stfmaskd = 0;
-
-    // (*fit.diff_tt)(,1,) = 0;
-    (*fit.coefs)(dm(1)._nact+1-3:dm(1)._nact+6-4)=0;
-    // (*fit.coefs)(dm(1)._nact+dm(2)._nact+1-6:dm(1)._nact+dm(2)._nact+6-7)=0;
-
-    if (fix_amp) *fit.amps = 0;
-    if (fix_pix) fit.psize = 0;
-    if (fix_kern) fit.kernd = 0;
+    if (fix_amp)   *fit.amps = 0;
+    if (fix_pix)   fit.psize = 0;
+    if (fix_kern)  fit.kernd = 0;
     if (fix_defoc) fit.defoc_scaling = 0;
+    (*fit.diff_tt)(,1,1) = 0;
 
-    //(*fit.coefs)(4-1) = 0; // and let's not optimize focus at all
+
+    // we want to filter focus at first.
+    // Note that focus is a different mode depending to modal basis.
+    // we want to filter TT on altitude DM when using yao, and piston on all.
+    for (nm=1;nm<=opp.ndm;nm++){
+      (*(*fit.coefs)(nm))(1) = 0; // filter Piston on all.
+      // filter TT and quadratic on altitude DMs:
+      if (nm>1) (*(*fit.coefs)(nm))(1:6) = 0;
+    }
 
     // call lmfit
-    res = lmfit_wrap(opra_foo,x,a,data,opp.nim,fit=fit,\
-                     tol=1e-7*1e-6,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(n),aregul=0.);
+    res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
+                     tol=1e-6,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(n),aregul=0.);
     if (opra_debug)                                                     \
       fits_write,"phase.fits",*opp.phase * (*opp.pupi),overwrite=1;
   }
-  /*
-  opp.action = swrite(format="Pass %d: Finishing pass (aberrations up to %d)", \
-                      passn++,nmodesv(0));
-  res = lmfit_wrap(opra_foo,x,a,data,opp.nim,fit=fit,                   \
-                   tol=1e-16,eps=0.01,itmax=nitv(0));
-  */
+
   if (opra_debug)                                                       \
     fits_write,"phase.fits",*opp.phase * (*opp.pupi),overwrite=1;
 
@@ -347,8 +352,7 @@ func opra_foo(x,b)
 {
   extern aold,sdimold;
   extern lmfititer,newiter,opra_iter;
-  extern ccc;
-  ccc=b;
+
   opra_iter++;
   if (aold==[]) {
     aold=opra_a_struct();
@@ -364,7 +368,7 @@ func opra_foo(x,b)
 
   // base + TT of additional images + amplitudes of all images
 
-  a = a_vec2struct(b,opp.nim);
+  a = a_vec2struct(b,opp);
 
   //FIXME:
   // limits a's:
@@ -387,26 +391,20 @@ func opra_foo(x,b)
   //It could be good to bound properly the parameters.
   //But is that possible with lmfit ?
 
-  nmodes = numberof(*a.coefs)+1;
-
   if (aold.pupd!=a.pupd) {
     // pupd has changed, need to recompute pupils and possibly modes.
     // Why possibly? kl are computed on even int dim, so if pupd has not
     // gone above the next even int value, no need to recompute (this is
     // done in opra_gen_modes() ).
-    offset   = ((opp.modes_type=="kl")? 0.5: 1);
+    offset   = ((opp.modes_type=="kl")? 0.5: 1); // FIXME: not sure it's good.
 
     //BN 4 tests:
     offset = 0.5; // FR?
 
-    //dh are like zernike, they need offset = 1
-
-    if (use_mode=="yao") {
+    if (opp.modes_type=="yao") {
       write,"Generating yao modes";
       sim.pupildiam = opp.pupd;
       aoinit,disp=0,clean=1;
-      opp.modes = &(array(0.0f,[3,opp.otf_dim,opp.otf_dim,nmodes])); // FIXME for multiple DMs
-      // (*opp.modes)(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,) = *dm(1)._def; // not needed w/ yao
       opp.pupi = &ipupil;
       opp.pupr = &pupil;
     } else {
@@ -426,7 +424,7 @@ func opra_foo(x,b)
     }
     prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
     // above: needed anyway for added defocus
-    // BUG: need to modify xc/yc as using kl???
+    // FIXME: need to modify xc/yc as using kl???
   }
 
   // if source TF mask diameter has changed. Recompute:
@@ -448,24 +446,12 @@ func opra_foo(x,b)
   // build PSF, OTF
   all_otf = [];
 
-  if (use_mode=="yao") {
+  if (opp.modes_type=="yao") {
     // build mircube. we need that only once, irrespective of positions
     extern mircube;
     mircube = array(0.0f,[3,sim._size,sim._size,ndm]);
-    i2 = 0;
-    yaz = array(pointer,ndm);
-    ynmodes = array(0,ndm);
     for (nm=1;nm<=ndm;nm++) {
-      i1 = i2+1;
-      i2 = i1+dm(nm)._nact-2;
-      if (nm>1) i2-=2;
-      // i1;i2;info,*a.coefs;hitReturn;
-      pad = array(0.0f,1);
-      if (nm>1) pad=array(0.0f,3);
-      az = _(pad,(*a.coefs)(i1:i2));
-      yaz(nm) = &az;
-      ynmodes(nm) = numberof(az);
-      dm(nm)._command = &(float(az));
+      dm(nm)._command = &(float(*(*a.coefs)(nm)));
       mircube(dm(nm)._n1:dm(nm)._n2,dm(nm)._n1:dm(nm)._n2,nm) = compDmShape(nm,dm(nm)._command);
     }
     multWfs,1,disp=0;
@@ -479,13 +465,13 @@ func opra_foo(x,b)
 
     *opp.phase *= 0.0f;
 
-    if (use_mode=="yao") {
+    if (opp.modes_type=="yao") {
       n12 = wfs(n).n12;
       (*opp.phase)(n12(1):n12(2),n12(1):n12(2)) = *wfs(n)._fimage;
       // tv,*opp.phase; hitReturn;
     } else {
       // FIXME multiple positions? nope.
-      az = _(0.,*a.coefs); // az = coef, as noll. az(1) = always piston (kl/zern)
+      az = *(*a.coefs)(1);
       for (i=2;i<=nmodes;i++) (*opp.phase)(,,1) += az(i)*(*opp.modes)(,,i);
     }
 
@@ -526,15 +512,16 @@ func opra_foo(x,b)
     }
 
     if (newiter) {
-      if (use_mode!="yao") opra_info_and_plots,a,*a.amps,az,nmodes,opp,op;
+      if (opp.modes_type!="yao") opra_info_and_plots,a,*a.amps,az,opp,op;
       else {
-        window,18;
-        mircube(,,1) *= ipupil;
-        tv,mircube(,*),square=1;
-        window,owinnum;
-        // (*opp.modes)(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2,) = *dm(1)._def; // not needed w/ yao
-        opra_info_and_plots,a,*a.amps,yaz,ynmodes,opp,op(,n),yao=1;
-        if ((opra_breakpoint) && (lmfititer%5)==0) hitReturn;
+        if (n==1) {
+          window,opp.winnum-1;
+          mircube(,,1) *= ipupil;
+          tv,mircube(,*),square=1;
+        }
+        window,opp.winnum+n-1;
+        opra_info_and_plots,a,*a.amps,*a.coefs,opp,op(,n),yao=1,star=n;
+        if (n==opp.npos) pause,100; // give time for graphci update
       }
     }
   }
@@ -547,10 +534,12 @@ func opra_foo(x,b)
 
   all_otf = float(all_otf(*)); // to save RAM
   rms1=(all_otf)(rms);
-  rms2 = (*a.coefs)(rms);
-  app = array(0.0f,nmodes);
-  app(1:numberof(*a.coefs)) = (*a.coefs)*3e2*rms1;
-  grow,all_otf,app;
+  app = [];
+  for (nm=1;nm<=opp.ndm;nm++) grow,app,(*(*a.coefs)(nm));
+  app = app*rms1*numberof(all_otf)/numberof(app)*1e-3;
+  // app = app*3e-3*rms1;
+  // sum(all_otf); app(rms);
+  if (opp.npos>1) grow,all_otf,app;
 
   return all_otf;
 }

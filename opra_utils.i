@@ -18,10 +18,6 @@ local opra_utils;
  * General Public License, write to the Free Software Foundation, Inc., 675
  * Mass Ave, Cambridge, MA 02139, USA).
  *
- * Utilitary functions for OPRA
- * - plots and printouts
- * - modes generation
- * - test image generation
  * SEE ALSO:
  */
 
@@ -47,7 +43,7 @@ func get_mtf(psf,dim,zero=)
 }
 
 
-func lmfit_wrap(f,x,&a,y,nim,fit=,tol=,eps=,itmax=,aregul=)
+func lmfit_wrap(f,x,&a,y,opp,fit=,tol=,eps=,itmax=,aregul=)
 {
   a = a_struct2vec(a);
   if (fit) {
@@ -57,54 +53,83 @@ func lmfit_wrap(f,x,&a,y,nim,fit=,tol=,eps=,itmax=,aregul=)
   }
   // indices on which to do the additional regularization (a)
   //  aregul_i = indgen(numberof(a)-(npbc+3))+(npbc+3);
-  aregul_i = indgen(numberof(a));
-  aregul_i(npbc+1:npbc+2) = 0;
-  aregul_i(1:npbc+2) = 0;
-  aregul_i = aregul_i(where(aregul_i));
+  // aregul_i = indgen(numberof(a));
+  // aregul_i(npbc+1:npbc+2) = 0;
+  // aregul_i(1:npbc+2) = 0;
+  // aregul_i = aregul_i(where(aregul_i));
 
   res = opra_lmfit(f,x,a,y,fit=fit,tol=tol,eps=eps,itmax=itmax,\
                    aregul=aregul,aregul_i=aregul_i,neval_max=30);
-  a = a_vec2struct(a,nim);
+  a = a_vec2struct(a,opp);
   return res;
 }
 
 func a_struct2vec(a)
+/* DOCUMENT a_struct2vec(a)
+ * returns a vectorized version of the structure a (opra_a_struct)
+ * SEE ALSO: a_vec2struct
+ */
 {
-  return _(a.pupd,a.kernd,a.stfmaskd,a.defoc_scaling,a.psize,   \
-           (*a.diff_tt)(*)(3:),(*a.amps)(*),*a.coefs);
+  v = [];
+  grow,v,a.pupd;
+  grow,v,a.kernd;
+  grow,v,a.stfmaskd;
+  grow,v,a.defoc_scaling;
+  grow,v,a.psize;
+  grow,v,(*a.diff_tt)(*);
+  grow,v,(*a.amps)(*);
+  cptr = *a.coefs;
+  for (i=1;i<=numberof(cptr);i++) grow,v,*(*a.coefs)(i);
+  return v;
 }
 
 
-func a_vec2struct(b,nim)
+func a_vec2struct(v,opp)
+/* DOCUMENT a_vec2struct(v,opp)
+ * returns an opra_a_struct() filled with the element of vector b,
+ * so that a = a_vec2struct ( a_struct2vec (a) )
+ * SEE ALSO: a_struct2vec
+ */
 {
-  extern npbc;
-  // Number of Parameter Before (mode) Coefs. (hence the name)
-  npbc = 5 + opp.npos*opp.nim*2 - 2 + opp.npos*opp.nim;
-
   a = opra_a_struct();
-  a.pupd          = b(1);
-  a.kernd         = b(2);
-  a.stfmaskd      = b(3);
-  a.defoc_scaling = b(4);
-  a.psize         = b(5);
-  diff_tt         = _(0.,0.,b(6:6+2*opp.npos*nim-2-1));
-  a.diff_tt       = &(reform(diff_tt,[3,2,nim,opp.npos]));
-  amps            = b(6+2*opp.npos*nim-1:6+2*opp.npos*nim-1+opp.npos*nim-1);
-  a.amps          = &(reform(amps,[2,nim,opp.npos]));
-  a.coefs         = &(b(npbc+1:));
-  return a;
+  a.pupd          = v(1); v = v(2:);
+  a.kernd         = v(1); v = v(2:);
+  a.stfmaskd      = v(1); v = v(2:);
+  a.defoc_scaling = v(1); v = v(2:);
+  a.psize         = v(1); v = v(2:);
+
+  diff_tt         = v(1:2*opp.nim*opp.npos); v = v(2*opp.nim*opp.npos+1:);
+  a.diff_tt       = &reform(diff_tt,[3,2,opp.nim,opp.npos]);
+
+  amps            = v(1:opp.npos*opp.nim); v = v(opp.npos*opp.nim+1:);
+  a.amps          = &reform(amps,[2,opp.nim,opp.npos]);
+
+  coefs           = v(1:opp.ncoefs);
+  a.coefs         = &(array(pointer,opp.ndm));
+
+  for (nm=1;nm<=opp.ndm;nm++) {
+    (*a.coefs)(nm) = &v(1:(*opp.ncoef_per_dm)(nm));
+    if (nm==opp.ndm) break;
+    v = v((*opp.ncoef_per_dm)(nm)+1:);
+  }
+
+  return a
 }
 
-func fresh_a(nim,ncoefs,val=)
+
+func fresh_a(opp,val=)
+/* DOCUMENT fresh_a(opp,val=)
+ * returns an opra_a_struct() filled with val
+ * SEE ALSO: a_struct2vec, a_vec2struct
+ */
 {
   if (val==[]) val=0.;
-  np = 5+2*opp.npos*nim-2+opp.npos*nim+(ncoefs-1);
-  a = array(val,np);
-  return a_vec2struct(a,nim);
+  a = array(val,1000);
+  return a_vec2struct(a,opp);
 }
 
 
-func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
+func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
 /* DOCUMENT opra_info_and_plots()
    This routine is called at each lmfit() new iteration to
    print out the current state of the optimizer and plot
@@ -115,6 +140,9 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
   extern itvec,distvec;
   extern lmfititer,newiter,opraiter;
 
+  nmodes = *opp.ncoef_per_dm;
+  if (opp.ndm==1) nmodes=nmodes(1);
+  if (!yao) star=1;
   mdim = opp.otf_sdim;
   all = array(0.,[2,(opp.nim*2)*mdim,3*mdim]);
   k = 0;
@@ -196,8 +224,14 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
   ipupr = long(ceil(a.pupd)/2.)+1;
   // compute phase w/o TT:
   pha = *opp.phase * 0.;
-  if (yao) pha = *opp.phase;
-  else for (i=4;i<=nmodes;i++) pha += az(i)*(*opp.modes)(,,i);
+  if (yao) {
+    pha = *opp.phase;
+    // remove TT (only on first DM):
+    c = float(*(*a.coefs)(1));
+    c(3:) = 0;
+    tt = compDmShape(1,&c);
+    pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
+  } else for (i=4;i<=nmodes;i++) pha += az(i)*(*opp.modes)(,,i);
   iminmax = minmax(pha(where(*opp.pupi)));
   phase_rms = pha(where(*opp.pupi))(rms);
   strehl = exp(-phase_rms^2.);
@@ -212,10 +246,11 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
   plt,txt,0.576,0.635,tosys=0,height=8,justify="CA";
 
   // convergence plot
-  grow,itvec,lmfititer;
+  if (star==1) grow,itvec,lmfititer;
   otf_diff = [];
   for (i=1;i<=opp.nim;i++) grow,otf_diff,(*op(i).otf_data-*op(i).otf)(*);
-  grow,distvec,(otf_diff)(rms);
+  if (star==1) grow,distvec,(otf_diff)(rms);
+  else distvec += (otf_diff)(rms);
   if (numberof(itvec)>=2) {
     plsys,4;
     plh,distvec,itvec;
@@ -252,14 +287,14 @@ func opra_info_and_plots(a,amps,az,nmodes,&opp,&op,yao=)
     }
   }
   if (yao) {
-    nmo = max(ynmodes);
+    nmo = max(nmodes);
     write,format="%s","DM                      : ";
     for (nm=1;nm<=ndm;nm++) write,format="%7d  ",nm;
     write,"";
     for (i=2;i<=min(nmo,nmodes_max4printout);i++) {
       write,format="a(%2d) [mrd]             : ",i;
       for (nm=1;nm<=ndm;nm++) {
-        if (i>ynmodes(nm)) write,format="%s","      -  ";
+        if (i>nmodes(nm)) write,format="%s","      -  ";
         else write,format="%+7.0f  ",1000*(*az(nm))(i);
       }
       write,"";
@@ -373,6 +408,8 @@ func plot_modes(mode_type)
   }
   limits,-0.5,10.5,-0.5,10.5;
 }
+
+
 func opra_gen_modes(dim,pupd,nmodes,mode_type=)
 /* DOCUMENT opra_gen_modes(dim,pupd,nmodes,mode_type=)
    Build a set nmodes of KL (mode_type="kl") or Zernike (mode_type="zernike") or disk harmonic (mode_type="dh")
