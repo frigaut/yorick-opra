@@ -49,7 +49,7 @@ n = 2;
 dm(n).type        = "dh";
 dm(n).subsystem   = 1;
 dm(n).ndh         = ndh_dms(2);
-dm(n).alt         = 4500.;
+dm(n).alt         = 10000.;
 dm(n).push4imat   = 0.05;
 
 // n = 3;
