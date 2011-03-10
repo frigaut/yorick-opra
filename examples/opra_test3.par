@@ -1,7 +1,7 @@
 // Aosimul par file, V2.4.0
 //-------------------------------
 sim.name          = "Gemini MCAO system w/ DH WFSs and DMs";
-sim.pupildiam     = 64;
+sim.pupildiam     = 30;
 sim.debug         = 0;
 sim.verbose       = 1;
 

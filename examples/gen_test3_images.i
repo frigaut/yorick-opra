@@ -32,4 +32,13 @@ fits_write,"opra_test3.focp0.4.fits",im,overwrite=1;
 add_dm0_shape = -zernike_ext(4)*0.6;
 go,10,all=1;
 fits_write,"opra_test3.focm0.4.fits",im,overwrite=1;
+fits_write,"opra_test3.dm1.fits",*dm(1)._command,overwrite=1;
+fits_write,"opra_test3.dm2.fits",*dm(2)._command,overwrite=1;
 quit;
+
+/*
+c1 = fits_read("opra_test3.dm1.fits");
+c2 = fits_read("opra_test3.dm2.fits");
+imamp = fits_read("opra_test3.imamp.fits");
+imoff = fits_read("opra_test3.imoff.fits");
+*/
