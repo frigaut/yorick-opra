@@ -10,8 +10,9 @@ aoloop,disp=1;
 go,20,all=1;
 // (*dm(3)._command)(26) = 0.2; // units are in microns. so in rd would be 2*pi/target.lambda= this * 3.801
 // (*dm(3)._command)(9) = 0.1; // units are in microns. so in rd would be 2*pi/target.lambda= this * 3.801
+random_seed,0.424;
 (*dm(1)._command) = random_n(dm(1)._nact)*2.*_(0.,noll(dm(1)._nact-1));
-(*dm(2)._command) = random_n(dm(2)._nact)*5.*_(0.,noll(dm(2)._nact-1));
+(*dm(2)._command) = random_n(dm(2)._nact)*6.*_(0.,noll(dm(2)._nact-1));
 // (*dm(3)._command) = random_n(dm(3)._nact)/2./indgen(dm(3)._nact);
 // (*dm(1)._command)(1:6) = 0;
 (*dm(1)._command)(5) = 0;
