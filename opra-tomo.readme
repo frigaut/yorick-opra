@@ -36,3 +36,39 @@ here is how it would go:
      this returns the phase. Alternatively, we may loop on calcpsf and directly
      get the images (if targets have been set).
    * feed these images to the minimization routine.
+
+
+==========================================
+using opra_test3:
+65% of time spent in opra_foo
+
+within opra_foo, negligible time spent in compDmShape.
+
+suppress get_mtf, bilinears and plots:
+2it, 5.16sec in opra_foo, 10.51sec total
+per it, 2.58
+
+same, but with plots:
+2it, 5.61sec in opra_foo, 11.03 sec total
+per it, 2.80
+
+same, with bilinears:
+2it, 6.22 sec, 9.56
+per it, 3.11
+
+same, with get_mtf,
+2it, 7.58s, 10.82
+per it, 3.79
+
+same, without PSF:
+1it, 3.00 sec
+so 2it, 6.0sec
+per it, 3.0
+
+so, per it:
+PSF      : 0.79
+get_mtf  : 0.68
+bilinear : 0.31
+yao calls: 0.15
+
+ok, calls to zernike are taking time (about 1.3s)
