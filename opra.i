@@ -481,16 +481,21 @@ func opra_foo(x,b)
       for (i=2;i<=nmodes;i++) (*opp.phase)(,,1) += az(i)*(*opp.modes)(,,i);
     }
 
+    // cache:
+    z2ext = zernike_ext(2);
+    z3ext = zernike_ext(3);
+    z4ext = zernike_ext(4);
+
     // loop on images (defocs)
     for (i=1;i<=opp.nim;i++) {
       // compute defoc to add to phase
-      defoc = op(i,n).delta_foc *  a.defoc_scaling * zernike_ext(4);
+      defoc = op(i,n).delta_foc *  a.defoc_scaling * z4ext;
       // compute tiptilt to add to phase
       // if (i>=2) {
       if ((n==1)&&(i==1)) tt = 0; // no special TT passed for image#1 (TT in "phase")
       else {
-        tt = (*a.diff_tt)(1,i,n) * zernike_ext(2) +       \
-             (*a.diff_tt)(2,i,n) * zernike_ext(3);
+        tt = (*a.diff_tt)(1,i,n) * z2ext +       \
+             (*a.diff_tt)(2,i,n) * z3ext;
       }
       // compute complex wavefront
       phi     = array(complex,[2,opp.otf_dim,opp.otf_dim]);
