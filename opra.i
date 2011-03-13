@@ -28,7 +28,7 @@ nmodes_max4printout = 30;
 if (find_in_path("svipc.i")!=[]) has_svipc=1;
 
 
-OPRA_VERSION = "1.7";
+OPRA_VERSION = "1.8";
 
 func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
           noise=, pupd=, otf_dim=, progressive=, niter=, fix_amp=, fix_pix=,
