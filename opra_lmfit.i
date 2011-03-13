@@ -1,7 +1,7 @@
-/* 
+/*
  * lmfit.i --
  *
- *	Non-linear least-squares fit by Levenberg-Marquardt method.
+ *      Non-linear least-squares fit by Levenberg-Marquardt method.
  *
  * Copyright (c) 1997, Eric THIEBAUT (thiebaut@obs.univ-lyon1.fr, Centre de
  * Recherche Astrophysique de Lyon, 9 avenue Charles  Andre,  F-69561 Saint
@@ -20,22 +20,22 @@
  * Mass Ave, Cambridge, MA 02139, USA).
  *
  * History:
- *	$Id: lmfit.i 8 2010-01-16 19:14:14Z frigaut $
- *	$Log: lmfit.i,v $
- *	Revision 1.1.1.1  2007/12/11 23:55:12  frigaut
- *	Initial Import - yorick-yutils
- *	
- *	Revision 1.4  2003/06/17 12:17:10  eric
- *	 - fix doc.
+ *      $Id: lmfit.i 8 2010-01-16 19:14:14Z frigaut $
+ *      $Log: lmfit.i,v $
+ *      Revision 1.1.1.1  2007/12/11 23:55:12  frigaut
+ *      Initial Import - yorick-yutils
  *
- *	Revision 1.3  1998/09/08 15:31:06  eric
- *	 - Make sure that input parameters have floating-point values.
+ *      Revision 1.4  2003/06/17 12:17:10  eric
+ *       - fix doc.
  *
- *	Revision 1.2  1997/07/28 08:26:25  eric
- *	 - Fix the doc.
+ *      Revision 1.3  1998/09/08 15:31:06  eric
+ *       - Make sure that input parameters have floating-point values.
  *
- *	Revision 1.1  1997/04/21 08:34:04  eric
- *	Initial revision
+ *      Revision 1.2  1997/07/28 08:26:25  eric
+ *       - Fix the doc.
+ *
+ *      Revision 1.1  1997/04/21 08:34:04  eric
+ *      Initial revision
  *-----------------------------------------------------------------------------
  */
 
@@ -44,19 +44,19 @@ require, "random.i";
 struct lmfit_result {
 /* DOCUMENT lmfit_result -- structure returned by lmfit
  */
-    long	neval;
-    long	niter;
-    long	nfit;
-    long	nfree;
-    long	monte_carlo;
-    double	chi2_first;
-    double	chi2_last;
-    double	conv;
-    double	sigma;
-    double	lambda;
-    pointer	stdev;
-    pointer	stdev_monte_carlo;
-    pointer	correl;
+    long        neval;
+    long        niter;
+    long        nfit;
+    long        nfree;
+    long        monte_carlo;
+    double      chi2_first;
+    double      chi2_last;
+    double      conv;
+    double      sigma;
+    double      lambda;
+    pointer     stdev;
+    pointer     stdev_monte_carlo;
+    pointer     correl;
 }
 
 func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
@@ -91,7 +91,7 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
          geometry, but it must be the same as the result returned by F.
      W:  Optional weight,  must be conformable  with Y and all  values of W
          must be positive  or null (default = 1.0).   Data points with zero
-	 weight are not fitted.	 Here are some examples:
+         weight are not fitted.  Here are some examples:
            - For no weighting (lest square fit): W = 1.0
            - For instrumental weighting: W(i) = 1.0/Y(i)
            - Gaussian noise: W(i) = 1.0/Var(Y(i))
@@ -135,7 +135,7 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
      EPS: Small positive value  used  to  estimate  derivatives  by forward
           difference.  Must be such that 1.0+EPS  and  1.0  are numerically
           different  and   should   be   about  sqrt(machine_precision)/100
-	  (default = 1e-6).
+          (default = 1e-6).
      TOL: Stop criteria for the convergence (default =  1e-7).   Should not
           be smaller  than  sqrt(machine_precision).   The  routine returns
           when  the  relative  decrease of  CHI2 is  less  than  TOL  in an
@@ -145,8 +145,8 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
      LAMBDA: Starting value for parameter LAMBDA (default = 1.0e-3).
      MONTE_CARLO: Number of Monte Carlo  simulations to perform to estimate
           standard  deviation  of  parameters  (by default  no Monte  Carlo
-	  simulations are undergone).  May spend a lot of time if you use a
-	  large number; but should not be too small!
+          simulations are undergone).  May spend a lot of time if you use a
+          large number; but should not be too small!
      AREGUL: specific to opra_lmfit. regularization factor for a(rms) (see
           code).
 
@@ -167,10 +167,10 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
        func F(x, a, &grad, deriv=)
        {
            y= ...;
-	   if (deriv) {
-	       grad= ...;
-	   }
-	   return y;
+           if (deriv) {
+               grad= ...;
+           }
+           return y;
        }
 
      Where X are the independent variables (anything the function  needs to
@@ -192,7 +192,7 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
      Beware that  the result  does depend on your  initial guess A.  In the
      case of  numerous  local  minima,  the only  way to  get  the  correct
      solution is to start with A close enough to this solution.
-     
+
      The estimates of  standard  deviation of the  parameters are  rescaled
      assuming that, for a correct model  and weights, the expected value of
      CHI2 should  be of the  order of NFREE=numberof(Y)-numberof(A)  (LMFIT
@@ -217,12 +217,12 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
        func foo(x, a, &grad, deriv=)
        {
            if (deriv)
-	       grad= [array(1.0, dimsof(x)),
-	              (exp(a(3)*x)-1.0)^2,
-	              2.0*a(2)*x*exp(a(3)*x)*(exp(a(3)*x)-1.0)];
+               grad= [array(1.0, dimsof(x)),
+                      (exp(a(3)*x)-1.0)^2,
+                      2.0*a(2)*x*exp(a(3)*x)*(exp(a(3)*x)-1.0)];
            return a(1)+a(2)*(exp(a(3)*x)-1.0)^2;
        }
-       
+
      Fitting this model by:
        r= lmfit(foo, x, a, y, 1., deriv=1, stdev=1, monte_carlo=500, correl=1)
      produces typically the following result:
@@ -241,7 +241,7 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
        *r.stdev_monte_carlo = [1.20222, 1.76120, 0.00494790]
        *r.correl            = [[ 1.000, -0.418, -0.574],
                                [-0.418,  1.000, -0.340],
-			       [-0.574, -0.340,  1.000]]
+                               [-0.574, -0.340,  1.000]]
 
    HISTORY:
      - Basic ideas borrowed from "Numerical Recipes in C", CURVEFIT.PRO (an
@@ -253,178 +253,191 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
        simulations...
  */
 {
-    local grad;
-    extern newiter, lmfit_itmax, lmfititer_pass;
+  local grad;
+  extern newiter, lmfit_itmax, lmfititer_pass;
+  extern stop_all;
 
-    /* Maybe subset of parameters to fit. */
-    if (structof(a)!=double) {
-	a+= 0.0;
-	if (structof(a)!=double)
-	    error, "bad data type for parameters (complex unsupported)";
+  /* Maybe subset of parameters to fit. */
+  if (structof(a)!=double) {
+    a+= 0.0;
+    if (structof(a)!=double)
+        error, "bad data type for parameters (complex unsupported)";
+  }
+  na= numberof(a);
+  if (is_void(fit))
+    fit= indgen(na);
+  else if (dimsof(fit)(1) == 0)
+    fit= [fit];
+  nfit= numberof(fit);
+  if (!nfit)
+    error, "no parameters to fit.";
+
+  if (itmax) lmfit_itmax=itmax;
+  lmfititer_pass = 0;
+  if (aregul==[]) aregul=0.;
+
+  /* Check weights. */
+  if (is_void(w)) w= 1.0;
+  else if (anyof(w < 0.0))
+    error, "bad weights.";
+  if (numberof(w) != numberof(y))
+    w += array(0.0, dimsof(y));
+  nfree= sum(w != 0.0) - nfit;        // Degrees of freedom
+  if (nfree <= 0)
+    error, "not enough data points.";
+
+  /* Other settings. */
+  diag= indgen(1:nfit^2:nfit+1);      // Subscripts of diagonal elements
+  if (is_void(lambda)) lambda= 1e-3;
+  if (is_void(gain)) gain= 10.0;
+  if (is_void(itmax)) itmax= 100;
+  if (is_void(eps)) eps= 1e-6;        // sqrt(machine_precision)/100
+  if (1.0+eps <= 1.0)
+      error, "bad value for EPS.";
+  if (is_void(tol)) tol= 1e-7;
+  monte_carlo= is_void(monte_carlo) ? 0 : long(monte_carlo);
+  warn_zero= 0;
+  warn= "*** Warning: LMFIT ";
+  neval= 0;
+  conv= 0.0;
+  niter= 0;
+
+  while (1) {
+    if ((has_svipc)&&(shm_read(shmkey,"next_stage")(1))) {
+      shm_write,shmkey,"next_stage",&([0]);
+      goto done;
     }
-    na= numberof(a);
-    if (is_void(fit))
-	fit= indgen(na);
-    else if (dimsof(fit)(1) == 0)
-	fit= [fit];
-    nfit= numberof(fit);
-    if (!nfit)
-	error, "no parameters to fit.";
+    if ((has_svipc)&&(shm_read(shmkey,"stop")(1))) { stop_all=1; goto done; }
 
-    if (itmax) lmfit_itmax=itmax;
-    lmfititer_pass = 0;
-    if (aregul==[]) aregul=0.;
-    
-    /* Check weights. */
-    if (is_void(w)) w= 1.0;
-    else if (anyof(w < 0.0))
-	error, "bad weights.";
-    if (numberof(w) != numberof(y))
-	w += array(0.0, dimsof(y));
-    nfree= sum(w != 0.0) - nfit;	// Degrees of freedom
-    if (nfree <= 0)
-	error, "not enough data points.";
+    newiter=1;
+    lmfititer_pass++;
+    if (deriv) {
+      m= f(x, a, grad, deriv=1);
+      neval++;
+      grad= nfit == na ? grad(*,) : grad(*,fit);
+    } else {
+      if (!niter) {
+          m= f(x, a);
+          neval++;
+      }
+      inc= eps * abs(a(fit));
+      if (numberof((i= where(inc <= 0.0)))) inc(i)= eps;
+      grad= array(double, numberof(y), nfit);
+      for (i=1; i<=nfit; i++) {
+        if ((has_svipc)&&(shm_read(shmkey,"quit?")(1))) { quit; }
+        anew= a;        // Copy current parameters
+        anew(fit(i)) += inc(i);
+        grad(,i)= (f(x,anew)-m)(*)/inc(i);
+      }
+      neval += nfit;
+    }
+    beta= w * (chi2= y-m);
+    if (niter) chi2= chi2new;
+    else {
+      chi2= chi2_first= sum(beta * chi2);
+      if (aregul) {
+        chi2       *= (1.+aregul*anew(aregul_i)(rms));
+        chi2_first *= (1.+aregul*anew(aregul_i)(rms));
+      }
+    }
+    beta= grad(+,) * beta(*)(+);
+    alpha= ((w(*)(,-) * grad)(+,) * grad(+,));
+    gamma= sqrt(alpha(diag));
+    if (anyof(gamma <= 0.0)) {
+      /* Some derivatives are null (certainly because of rounding
+       * errors). */
+      if (!warn_zero) {
+          write, warn+"founds zero derivatives.";
+          warn_zero= 1;
+      }
+      gamma(where(gamma <= 0.0))= eps * max(gamma);
+      /* goto done; */
+    }
+    gamma= 1.0 / gamma;
+    beta *= gamma;
+    alpha *= gamma(,-) * gamma(-,);
 
-    /* Other settings. */
-    diag= indgen(1:nfit^2:nfit+1);	// Subscripts of diagonal elements
-    if (is_void(lambda)) lambda= 1e-3;
-    if (is_void(gain)) gain= 10.0;
-    if (is_void(itmax)) itmax= 100;
-    if (is_void(eps)) eps= 1e-6;	// sqrt(machine_precision)/100
-    if (1.0+eps <= 1.0)
-	error, "bad value for EPS.";
-    if (is_void(tol)) tol= 1e-7;
-    monte_carlo= is_void(monte_carlo) ? 0 : long(monte_carlo);
-    warn_zero= 0;
-    warn= "*** Warning: LMFIT ";
-    neval= 0;
-    conv= 0.0;
-    niter= 0;
-    
+    neval_intern = 0;
     while (1) {
-      newiter=1;
-      lmfititer_pass++;
-	if (deriv) {
-	    m= f(x, a, grad, deriv=1);
-	    neval++;
-	    grad= nfit == na ? grad(*,) : grad(*,fit);
-	} else {
-	    if (!niter) {
-		m= f(x, a);
-		neval++;
-	    }
-	    inc= eps * abs(a(fit));
-	    if (numberof((i= where(inc <= 0.0)))) inc(i)= eps;
-	    grad= array(double, numberof(y), nfit);
-	    for (i=1; i<=nfit; i++) {
-		anew= a;	// Copy current parameters
-		anew(fit(i)) += inc(i);
-		grad(,i)= (f(x,anew)-m)(*)/inc(i);
-	    }
-	    neval += nfit;
-	}
-	beta= w * (chi2= y-m);
-	if (niter) chi2= chi2new;
-	else {
-          chi2= chi2_first= sum(beta * chi2);
-          if (aregul) {
-            chi2       *= (1.+aregul*anew(aregul_i)(rms));
-            chi2_first *= (1.+aregul*anew(aregul_i)(rms));
-          }
-        }
-	beta= grad(+,) * beta(*)(+);
-	alpha= ((w(*)(,-) * grad)(+,) * grad(+,));
-	gamma= sqrt(alpha(diag));
-	if (anyof(gamma <= 0.0)) {
-	    /* Some derivatives are null (certainly because of rounding
-	     * errors). */
-	    if (!warn_zero) {
-		write, warn+"founds zero derivatives.";
-		warn_zero= 1;
-	    }
-	    gamma(where(gamma <= 0.0))= eps * max(gamma);
-	    /* goto done; */
-	}
-	gamma= 1.0 / gamma;
-	beta *= gamma;
-	alpha *= gamma(,-) * gamma(-,);
-
-        neval_intern = 0;
-	while (1) {
-	    alpha(diag)= 1.0 + lambda;
-	    anew= a;
-	    anew(fit) += gamma * LUsolve(alpha, beta);
-	    m= f(x, anew);
-	    neval++;
-            neval_intern++;
-	    d= y-m;
-	    chi2new= sum(w*d*d);
-            if (aregul) chi2new *= (1.+aregul*anew(aregul_i)(rms));
-	    if (chi2new < chi2)
-		break;
-	    lambda *= gain;
-	    if (allof(anew == a) || neval_intern > neval_max) {
-		/* No change in parameters. */
-		write, warn+"makes no progress.";
-		goto done;
-	    }
-	}
-	a= anew;
-	lambda /= gain;
-	niter++;
-	conv= 2.0*(chi2-chi2new)/(chi2+chi2new);
-	if (conv <= tol)
-	    break;
-	if (niter >= itmax) {
-	    write, format=warn+"reached maximum number of iterations (%d).\n",
-		itmax;
-	    break;
-	}
+      if (shm_read(shmkey,"redraw")(1)) {
+        pause,50;
+        shm_write,shmkey,"redraw",&([0]);
+      }
+      if ((has_svipc)&&(shm_read(shmkey,"stop")(1))) { stop_all=1; goto done; }
+      alpha(diag)= 1.0 + lambda;
+      anew= a;
+      anew(fit) += gamma * LUsolve(alpha, beta);
+      m= f(x, anew);
+      neval++;
+      neval_intern++;
+      d= y-m;
+      chi2new= sum(w*d*d);
+      if (aregul) chi2new *= (1.+aregul*anew(aregul_i)(rms));
+      if (chi2new < chi2)
+        break;
+      lambda *= gain;
+      if (allof(anew == a) || neval_intern > neval_max) {
+        /* No change in parameters. */
+        write, warn+"makes no progress.";
+        goto done;
+      }
     }
-    
+    a= anew;
+    lambda /= gain;
+    niter++;
+    conv= 2.0*(chi2-chi2new)/(chi2+chi2new);
+    if (conv <= tol)
+        break;
+    if (niter >= itmax) {
+        write, format=warn+"reached maximum number of iterations (%d).\n",
+            itmax;
+        break;
+    }
+  }
+
 done:
     sigma= sqrt(nfree/chi2);
     result= lmfit_result(neval=neval, niter=niter, nfree=nfree, nfit=nfit,
-	    lambda=lambda, chi2_first=chi2_first, chi2_last=chi2, conv=conv,
-	    sigma=sigma);
+            lambda=lambda, chi2_first=chi2_first, chi2_last=chi2, conv=conv,
+            sigma=sigma);
     if (correl || stdev) {
-	/* Compute correlation matrice and/or standard deviation vector. */
-	alpha(diag)= 1.0;
-	alpha= LUsolve(alpha);
-	if (anyof((tmp1= alpha(diag)) < 0.0))
-	    write, format=warn+"%s\n", "found negative variance(s)";
-	tmp1= sqrt(abs(tmp1));
-	if (stdev) {
-	    /* Standard deviation is rescaled assuming that statistically
-	     * chi2 = nfree +/- sqrt(2*nfree). */
-	    (tmp2= array(double,na))(fit)= gamma * tmp1 / sigma;
-	    result.stdev= &tmp2;
-	}
-	if (correl) {
-	    gamma= 1.0 / tmp1;
-	    alpha *= gamma(-,) * gamma(,-);
-	    if (nfit == na) {
-		result.correl= &alpha;
-	    } else {
-		(tmp2= array(double, na, na))(fit,fit)= alpha;
-		result.correl= &tmp2;
-	    }
-	}
+        /* Compute correlation matrice and/or standard deviation vector. */
+        alpha(diag)= 1.0;
+        alpha= LUsolve(alpha);
+        if (anyof((tmp1= alpha(diag)) < 0.0))
+            write, format=warn+"%s\n", "found negative variance(s)";
+        tmp1= sqrt(abs(tmp1));
+        if (stdev) {
+            /* Standard deviation is rescaled assuming that statistically
+             * chi2 = nfree +/- sqrt(2*nfree). */
+            (tmp2= array(double,na))(fit)= gamma * tmp1 / sigma;
+            result.stdev= &tmp2;
+        }
+        if (correl) {
+            gamma= 1.0 / tmp1;
+            alpha *= gamma(-,) * gamma(,-);
+            if (nfit == na) {
+                result.correl= &alpha;
+            } else {
+                (tmp2= array(double, na, na))(fit,fit)= alpha;
+                result.correl= &tmp2;
+            }
+        }
     }
-    alpha= beta= gamma= [];	// Free some memory.
+    alpha= beta= gamma= [];     // Free some memory.
     if (monte_carlo >= 1) {
-	saa= 0.0*a;
-	sig= (w > 0.0) /(sqrt(max(nfree/chi2*w, 0.0)) + (w == 0.0));
-	for (i=1; i<=monte_carlo; i++) {
-	    anew= a;
-	    ynew= y + sig * random_n(dimsof(y));
-	    lmfit, f, x, anew, ynew, w, fit=fit, gain=gain, tol=tol,
-		deriv=deriv, itmax=itmax, lambda=lambda, eps=eps;
-	    anew -= a;
-	    saa += anew * anew;
-	}
-	result.monte_carlo= monte_carlo;
-	result.stdev_monte_carlo= &sqrt(saa / monte_carlo);
+        saa= 0.0*a;
+        sig= (w > 0.0) /(sqrt(max(nfree/chi2*w, 0.0)) + (w == 0.0));
+        for (i=1; i<=monte_carlo; i++) {
+            anew= a;
+            ynew= y + sig * random_n(dimsof(y));
+            lmfit, f, x, anew, ynew, w, fit=fit, gain=gain, tol=tol,
+                deriv=deriv, itmax=itmax, lambda=lambda, eps=eps;
+            anew -= a;
+            saa += anew * anew;
+        }
+        result.monte_carlo= monte_carlo;
+        result.stdev_monte_carlo= &sqrt(saa / monte_carlo);
     }
     return result;
 }

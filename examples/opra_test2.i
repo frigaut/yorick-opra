@@ -5,6 +5,7 @@ modes     = "yao";
 lambda    = 1.68e-6; // [m]
 pixsize   = 0.020;   // [arcsec]
 focstep   = 0.833; // this is 200nm of z4
+//focstep   = 0.2e-6/lambda*2*pi;
 allfocs   = [2,0,-2]*focstep;
 parfile   = "toy-dh.par";
 

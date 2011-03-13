@@ -16,7 +16,7 @@ Y_EXE_SITE=/usr/share/yorick/2.2
 # used for distribution
 PKG_NAME = opra
 # include files for this package
-PKG_I=opra.i opra_lmfit.i opra_utils.i opra_caller.i opra_libkl.i opra_libdh.i opra_structs.i
+PKG_I=opra.i opra_lmfit.i opra_utils.i opra_caller.i opra_libkl.i opra_libdh.i opra_structs.i opra_gui.i
 
 # autoload file for this package, if any
 PKG_I_START =
@@ -43,8 +43,12 @@ clean:
 install:
 	mkdir -p $(DEST_Y_SITE)/i
 	mkdir -p $(DEST_Y_SITE)/g
+	mkdir -p $(DEST_Y_SITE)/python
+	mkdir -p $(DEST_Y_SITE)/glade
 	cp -p $(PKG_I) $(DEST_Y_SITE)/i/
 	cp -p opra.gs $(DEST_Y_SITE)/g/
+	cp -p opra_gui.py $(DEST_Y_SITE)/python/.
+	cp -p opra_gui.glade $(DEST_Y_SITE)/glade/.
 
 uninstall:
 	-cd $(DEST_Y_SITE)/i; rm $(PKG_I)

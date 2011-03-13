@@ -129,7 +129,7 @@ func fresh_a(opp,val=)
 }
 
 
-func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
+func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
 /* DOCUMENT opra_info_and_plots()
    This routine is called at each lmfit() new iteration to
    print out the current state of the optimizer and plot
@@ -168,9 +168,7 @@ func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
 
   pli,(abs(all));
   plt,"OTFs (re,im,re,im...)",0.145,0.635,tosys=0,height=10;
-  // plt,"Data",0.130,0.502,orient=1,tosys=0,height=8,justify="CA";
   plt,"Data<- Model ->Diff",0.130,0.535,orient=1,tosys=0,height=8,justify="CA";
-  // plt,"Diff",0.130,0.659,orient=1,tosys=0,height=8,justify="CA";
 
   plt,opp.action,0.145,0.90,tosys=0,height=12;
   txt = swrite(format="Iterations: %d/%d, total %d",lmfititer_pass,     \
@@ -192,18 +190,8 @@ func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
     // data, I chose to also rebin and put some noise:
     otf2 = array(complex,dimsof((*op(1).otf)(,,1)));
     otf2.re = roll((*op(i).otf)(,,1));
-    //    center = opp.otf_sdim/2+1;
-    //    otf2.re(center,center) = otf2.re(center+1,center);
     otf2.im = -roll((*op(i).otf)(,,2));
     psf = roll((fft(otf2,-1)).re)/opp.otf_sdim^2.;
-    //    psf -= median(psf(1:20,1:20)(*)); // sky subtraction
-
-    /*
-      psf = *op(i).psf;
-    psf = psf/maxpsf1/amps(i);
-    psf = abs(fft(fft(psf,1)*roll(mask),-1))/opp.otf_dim^2.;
-    psf = spline2(psf,opp.im_dim,opp.im_dim);
-    */
     psf = spline2(psf,opp.im_dim,opp.im_dim);
     psf = psf/sum(psf);
     psf = psf+gaussdev(dimsof(psf))*op(i).noise;
@@ -236,10 +224,7 @@ func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
   phase_rms = pha(where(*opp.pupi))(rms);
   strehl = exp(-phase_rms^2.);
   dim = opp.otf_dim;
-  //  tmp = ((*opp.phase-iminmax(1))*(*opp.pupi))               \
-  //    (dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
-  tmp = ((pha-iminmax(1))*(*opp.pupi))                   \
-    (dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
+  tmp = ((pha-iminmax(1))*(*opp.pupi))(dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
   pli,tmp;
   txt = swrite(format="Phase (%.2f->%.2f rd). Strehl=%.1f%%",iminmax(1),\
                iminmax(2),strehl*100.);
@@ -279,7 +264,6 @@ func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
       for (j=1;j<=opp.nim;j++) write,format="%+.2f ",(*a.diff_tt)(2,j,i);
       write,"";
     }
-    //  write,format="foc-defoc tiptilt  : %.2f,%.2f\n",a(5),a(6);
     for (i=1;i<=opp.npos;i++) {
       write,format="Intens. ratii (imset%d)  : %.2f",i,(*a.amps)(1,i);
       for (j=2;j<=opp.nim;j++) write,format=",%.2f",(*a.amps)(j,i);
@@ -319,6 +303,7 @@ func opra_info_and_plots(a,amps,az,&opp,&op,yao=,star=)
   txt = swrite(format="Image ampl. scal. fact. [no units] : %.2f",(*a.amps)(1));
   for (i=2;i<=opp.nim;i++) txt+=swrite(format=",%.2f",(*a.amps)(i));
   plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
+
 }
 
 

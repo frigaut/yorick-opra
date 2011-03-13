@@ -25,13 +25,15 @@ require,"opra_structs.i"; // structures declarations
 
 nmodes_max4printout = 30;
 
+if (find_in_path("svipc.i")!=[]) has_svipc=1;
 
-OPRA_VERSION = "1.5";
+
+OPRA_VERSION = "1.7";
 
 func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
           noise=, pupd=, otf_dim=, progressive=, niter=, fix_amp=, fix_pix=,
           fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, winnum=,
-          dpi=, pal=, yao_parfile=)
+          dpi=, pal=, yao_parfile=, gui=)
 /* DOCUMENT opra(images,defocs,nmodes=,use_mode=)
    images:         Image data cube (data). These must be at least shannon sampled,
                    ideally 2x shannon or more.
@@ -82,6 +84,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   extern aold, opra_iter, lmfititer;
   extern itvec,distvec;
 
+
   //#################################
   // Initialize some general variables
   //#################################
@@ -113,6 +116,32 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   opp.im_dim   = dimsof(images)(2);  // side dimension of input images
   opp.winnum   = winnum;
 
+  // svipc and GUI:
+  if ((gui)&&(has_svipc)) {
+    require,"svipc.i";
+    has_svipc=1;
+    extern shmkey,semkey;
+    shmkey = 0x00abacab;
+    semkey = 0x0aabacab;
+    write,format="shmkey = %#x\n",shmkey;
+    shm_init,shmkey,slots=20;
+    sem_init,semkey,nums=20;
+    shm_write,shmkey,"stop",&([0]);
+    shm_write,shmkey,"next_stage",&([0]);
+    shm_write,shmkey,"xids",&([0]);
+    shm_write,shmkey,"quit?",&([0]);
+    shm_write,shmkey,"quit!",&([0]);
+    shm_write,shmkey,"redraw",&([0]);
+    if (fork()==0) { // I'm the child
+      // Start GUI
+      extern fdpi; fdpi=dpi;
+      images = [];
+      require,"opra_gui.i";
+      exit;
+    } else {
+      set_idler,poll_quit;
+    }
+  }
 
   // type of modes used to build the  phase
   if (strpart(use_mode,1:2) == "ze") opp.modes_type = "zernike";
@@ -155,8 +184,6 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     opp.ncoef_per_dm = &dm._nact;
     opp.ndm = ndm;
     dpi2 = long(dpi*ndm/3.);
-    if (window_exists(winnum-1)) winkill,winnum-1;
-    window,winnum-1,style="nobox.gs",width=long(6.*dpi2/ndm),height=6*dpi2,dpi=dpi2,wait=1;
 
   } else {
     require,"yao.i";
@@ -168,12 +195,28 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   //#################################
   // create graphic windows
   //#################################
+  if ((gui)&&(has_svipc)) {
+    sem_take,semkey,0;
+    xids = shm_read(shmkey,"xids");
+  }
   for (n=1;n<=opp.npos;n++) {
     winn = winnum+n-1;
-    if (window_exists(winn)) winkill,winn;
-    window,winn,wait=1,style="opra.gs",dpi=dpi,width=0,height=0;
+    if ((gui)&&(has_svipc)) {
+      window,winn,wait=0,style="opra.gs",dpi=dpi,width=0,height=0,parent=xids(n);
+      pause,50;
+    } else {
+      if (window_exists(winn)) winkill,winn;
+      window,winn,wait=1,style="opra.gs",dpi=dpi,width=0,height=0;
+    }
     if (pal) palette,pal;
     for (i=1;i<=3;i++) { plsys,i; limits,square=1; }
+  }
+  if ((use_mode=="yao")&&(gui)&&(has_svipc)) {
+    window,winnum+opp.npos,style="nobox.gs",width=0,height=0,\
+      dpi=dpi,wait=0,parent=xids(opp.npos+1);
+  } else {
+    if (window_exists(winnum+opp.npos)) winkill,winnum+opp.npos;
+    window,winnum+opp.npos,style="nobox.gs",width=long(6.*dpi2/ndm),height=6*dpi2,dpi=dpi2,wait=1;
   }
 
   opp.cobs = (cobs?cobs:0.);
@@ -290,7 +333,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   // call lmfit
   res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
                    tol=1e-6,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(1),aregul=0.);
-
+  if (stop_all) goto fin;
 
   // increase nmodes gently
   for (n=2;n<=numberof(nmodesv);n++) {
@@ -324,6 +367,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     // call lmfit
     res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
                      tol=1e-12,eps=(use_mode=="yao"?0.001:0.01),itmax=nitv(n),aregul=0.);
+    if (stop_all) goto fin;
     if (opra_debug)                                                     \
       fits_write,"phase.fits",*opp.phase * (*opp.pupi),overwrite=1;
   }
@@ -331,9 +375,13 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   if (opra_debug)                                                       \
     fits_write,"phase.fits",*opp.phase * (*opp.pupi),overwrite=1;
 
+  fin:
   write,format="Elapsed time = %f sec\n",tac();
 
   opp.coefs=&(*a.coefs);
+
+  // if (has_svipc) shm_cleanup,shmkey;
+
   return opp;
 }
 
@@ -356,6 +404,11 @@ func opra_foo(x,b)
 {
   extern aold,sdimold;
   extern lmfititer,newiter,opra_iter;
+
+  if (shm_read(shmkey,"redraw")(1)) {
+	  pause,50;
+	  shm_write,shmkey,"redraw",&([0]);
+	}
 
   opra_iter++;
   if (aold==[]) {
@@ -526,7 +579,7 @@ func opra_foo(x,b)
       if (opp.modes_type!="yao") opra_info_and_plots,a,*a.amps,az,opp,op;
       else {
         if (n==1) {
-          window,opp.winnum-1;
+          window,opp.winnum+opp.npos;
           mircube(,,1) *= ipupil;
           tv,mircube(,*),square=1;
         }
@@ -556,3 +609,24 @@ func opra_foo(x,b)
   return all_otf;
 }
 
+if (original_quit==[]) original_quit = quit;
+
+func opra_quit(void)
+{
+  write,format="%s\n","Asking fork to quit";
+  // notify fork to quit:
+  shm_write,shmkey,"quit?",&([1]);
+  // waiting for acknowledgment:
+  while (!shm_read(shmkey,"quit!")(1)) usleep,20;
+  write,format="%s\n","Cleaning up svipc";
+  shm_cleanup,shmkey;
+  sem_cleanup,semkey;
+  original_quit;
+}
+if (has_svipc) quit=opra_quit;
+
+func poll_quit(void)
+{
+  if (shm_read(shmkey,"quit?")(1)) opra_quit;
+  after,0.1,poll_quit;
+}
