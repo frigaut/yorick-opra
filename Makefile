@@ -16,7 +16,7 @@ Y_EXE_SITE=/usr/share/yorick/2.2
 # used for distribution
 PKG_NAME = opra
 # include files for this package
-PKG_I=opra.i opra_lmfit.i opra_utils.i opra_caller.i opra_libkl.i opra_libdh.i opra_structs.i opra_gui.i
+PKG_I=opra.i opra_lmfit.i opra_utils.i opra_caller.i opra_libkl.i opra_libdh.i opra_structs.i opra_gui.i opra_svipc.i
 
 # autoload file for this package, if any
 PKG_I_START =
