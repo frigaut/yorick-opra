@@ -108,9 +108,9 @@ func a_vec2struct(v,opp)
   a.coefs         = &(array(pointer,opp.ndm));
 
   for (nm=1;nm<=opp.ndm;nm++) {
-    (*a.coefs)(nm) = &v(1:(*opp.ncoef_per_dm)(nm));
+    (*a.coefs)(nm) = &v(1:(opp.ncoef_per_dm)(nm));
     if (nm==opp.ndm) break;
-    v = v((*opp.ncoef_per_dm)(nm)+1:);
+    v = v((opp.ncoef_per_dm)(nm)+1:);
   }
 
   return a
@@ -128,8 +128,7 @@ func fresh_a(opp,val=)
   return a_vec2struct(a,opp);
 }
 
-
-func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
+func opra_info_and_plots(a,opp,op,yao=,star=,noplots=,noprint=)
 /* DOCUMENT opra_info_and_plots()
    This routine is called at each lmfit() new iteration to
    print out the current state of the optimizer and plot
@@ -140,9 +139,14 @@ func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
   extern itvec,distvec;
   extern lmfititer,newiter,opraiter;
 
-  nmodes = *opp.ncoef_per_dm;
+  amps = *a.amps;
+  nmodes = opp.ncoef_per_dm;
   if (opp.ndm==1) nmodes=nmodes(1);
   if (!yao) star=1;
+  if (star==[]) star=1;
+
+  if (noplots) goto printouts;
+
   mdim = opp.otf_sdim;
   all = array(0.,[2,(opp.nim*2)*mdim,3*mdim]);
   k = 0;
@@ -150,19 +154,24 @@ func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
   for (i=1;i<=opp.nim;i++) {
     // stuff in real part of OTF (data and model), and difference
     all(k*mdim+1:(k+1)*mdim,) =                                        \
-      _( (*op(i).otf_data)(,,1),                                       \
-         (*op(i).otf)(,,1),                                            \
-         abs((*op(i).otf_data)(,,1)-(*op(i).otf)(,,1)));
+      _( op(i).otf_data(,,1),                                       \
+         op(i).otf(,,1),                                            \
+         abs(op(i).otf_data(,,1)-op(i).otf(,,1)));
     k++;
     // stuff in imag part of OTF (data and model), and difference
     all(k*mdim+1:(k+1)*mdim,) =                                        \
-      _( (*op(i).otf_data)(,,2),                                       \
-         (*op(i).otf)(,,2),                                            \
-         abs((*op(i).otf_data)(,,2)-(*op(i).otf)(,,2)));
+      _( op(i).otf_data(,,2),                                       \
+         op(i).otf(,,2),                                            \
+         abs(op(i).otf_data(,,2)-op(i).otf(,,2)));
     k++;
   }
 
+  //============================================
+  // PLOTS
+  //============================================
+
   // OTF (data, model and difference)
+  window,opp.winnum+star-1;
   plsys,0;
   fma;
 
@@ -179,18 +188,18 @@ func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
   plsys,2;
   for (i=1;i<=opp.nim;i++) {
     if (opp.nim<=2) {
-      pli,*op(i).psf_data,2*(i-1),0,2*(i-1)+1,1;
+      pli,op(i).psf_data,2*(i-1),0,2*(i-1)+1,1;
       plt,"Data",2*(i-1)+0.5,1,tosys=2,height=8,justify="CT",color="white";
     } else {
-      pli,*op(i).psf_data,(i-1),0,(i-1)+1,1;
+      pli,op(i).psf_data,(i-1),0,(i-1)+1,1;
       plt,"Data",(i-1)+0.5,1,tosys=2,height=6,justify="CT",color="white";
     }
     // Now model image. Remember? We have to apply the object
     // mask (see note in opra.i). For better eye comparison with
     // data, I chose to also rebin and put some noise:
-    otf2 = array(complex,dimsof((*op(1).otf)(,,1)));
-    otf2.re = roll((*op(i).otf)(,,1));
-    otf2.im = -roll((*op(i).otf)(,,2));
+    otf2 = array(complex,dimsof(op(1).otf(,,1)));
+    otf2.re = roll(op(i).otf(,,1));
+    otf2.im = -roll(op(i).otf(,,2));
     psf = roll((fft(otf2,-1)).re)/opp.otf_sdim^2.;
     psf = spline2(psf,opp.im_dim,opp.im_dim);
     psf = psf/sum(psf);
@@ -211,20 +220,26 @@ func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
   plsys,3;
   ipupr = long(ceil(a.pupd)/2.)+1;
   // compute phase w/o TT:
-  pha = *opp.phase * 0.;
+  pha = opp.phase(,,star) * 0.;
   if (yao) {
-    pha = *opp.phase;
+    pha = opp.phase(,,star);
     // remove TT (only on first DM):
     c = float(*(*a.coefs)(1));
     c(4:) = 0;
     tt = compDmShape(1,&c);
     pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
-  } else for (i=4;i<=nmodes;i++) pha += az(i)*(*opp.modes)(,,i);
-  iminmax = minmax(pha(where(*opp.pupi)));
-  phase_rms = pha(where(*opp.pupi))(rms);
+  } else {
+    if (has_svipc) {
+      for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(emodes)(,,i);
+    } else {
+      for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
+    }
+  }
+  iminmax = minmax(pha(where(opp.pupi)));
+  phase_rms = pha(where(opp.pupi))(rms);
   strehl = exp(-phase_rms^2.);
   dim = opp.otf_dim;
-  tmp = ((pha-iminmax(1))*(*opp.pupi))(dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
+  tmp = ((pha-iminmax(1))*opp.pupi)(dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
   pli,tmp;
   txt = swrite(format="Phase (%.2f->%.2f rd). Strehl=%.1f%%",iminmax(1),\
                iminmax(2),strehl*100.);
@@ -233,62 +248,23 @@ func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
   // convergence plot
   if (star==1) grow,itvec,lmfititer;
   otf_diff = [];
-  for (i=1;i<=opp.nim;i++) grow,otf_diff,(*op(i).otf_data-*op(i).otf)(*);
+  for (i=1;i<=opp.nim;i++) grow,otf_diff,(op(i).otf_data-op(i).otf)(*);
   if (star==1) grow,distvec,(otf_diff)(rms);
   else distvec(0) += (otf_diff)(rms);
   if ((numberof(itvec)>=2)&&(star==opp.npos)) {
-    plsys,4;
-    plh,distvec,itvec;
-    range,min(distvec)*0.98;
-    logxy,0,1;
-    txt = swrite(format="Convergence crit. (current=%.2e)",distvec(0));
-    plt,txt,0.50,0.474,tosys=0,height=8;
-    plt,"Distance to data",0.471,0.425,tosys=0,orient=1,height=8,justify="CA";
-    plt,"Iteration",0.58,0.357,tosys=0,height=8,justify="CA";
-  }
-
-  system,"clear";
-  write,format="%s\n",pass_action;
-  write,format="lmfit Iteration#        : %d\n",lmfititer;
-  write,format="Pass through foo2       : %d\n",opraiter;
-  write,format="Support diameter        : %.2f\n",a.pupd;
-  write,format="Kernel [pixels]         : %.2f\n",a.kernd;
-  write,format="Mask diameter           : %.2f\n",a.stfmaskd;
-  write,format="foc-defoc defocus       : %.2f\n",a.defoc_scaling;
-  write,format="Pixel size scaling      : %.2f\n",a.psize;
-  if (!opra_brief_printout) {
-    for (i=1;i<=opp.npos;i++) {
-      write,format="Diff. TT (imset%d) [pix] : Tip: ",i;
-      for (j=1;j<=opp.nim;j++) write,format="%+.2f ",(*a.diff_tt)(1,j,i);
-      write,format="%s","| Tilt: ";
-      for (j=1;j<=opp.nim;j++) write,format="%+.2f ",(*a.diff_tt)(2,j,i);
-      write,"";
-    }
-    for (i=1;i<=opp.npos;i++) {
-      write,format="Intens. ratii (imset%d)  : %.2f",i,(*a.amps)(1,i);
-      for (j=2;j<=opp.nim;j++) write,format=",%.2f",(*a.amps)(j,i);
-      write,"";
+    for (nw=1;nw<=opp.npos;nw++) {
+      window,opp.winnum+nw-1;
+      plsys,4;
+      plh,distvec,itvec;
+      range,min(distvec)*0.98;
+      logxy,0,1;
+      txt = swrite(format="Convergence crit. (current=%.2e)",distvec(0));
+      plt,txt,0.50,0.474,tosys=0,height=8;
+      plt,"Distance to data",0.471,0.425,tosys=0,orient=1,height=8,justify="CA";
+      plt,"Iteration",0.58,0.357,tosys=0,height=8,justify="CA";
+      redraw;
     }
   }
-  if (yao) {
-    nmo = max(nmodes);
-    write,format="%s","DM                      : ";
-    for (nm=1;nm<=ndm;nm++) write,format="%7d  ",nm;
-    write,"";
-    for (i=2;i<=min(nmo,nmodes_max4printout);i++) {
-      write,format="a(%2d) [mrd]             : ",i;
-      for (nm=1;nm<=ndm;nm++) {
-        if (i>nmodes(nm)) write,format="%s","      -  ";
-        else write,format="%+7.0f  ",1000*(*az(nm))(i);
-      }
-      write,"";
-    }
-  } else {
-    for (i=2;i<=min(nmodes,nmodes_max4printout);i++) {
-      write,format="a(%2d)                   : %+7.0f mrd\n",i,1000*az(i);
-    }
-  }
-
   ytop = 0.43; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
   txt = swrite(format="Support diameter [pixels]          : %.2f",a.pupd);
   plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
@@ -303,6 +279,58 @@ func opra_info_and_plots(a,amps,az,opp,op,yao=,star=)
   txt = swrite(format="Image ampl. scal. fact. [no units] : %.2f",(*a.amps)(1));
   for (i=2;i<=opp.nim;i++) txt+=swrite(format=",%.2f",(*a.amps)(i));
   plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
+
+
+  //============================================
+  // PRINTOUTS
+  //============================================
+  if (noprint) return;
+  printouts:
+  if ((yao==1)&&(star!=opp.npos)) {
+  // pass
+  } else {
+    system,"clear";
+    write,format="%s\n",pass_action;
+    write,format="lmfit Iteration#        : %d\n",lmfititer;
+    write,format="Pass through foo2       : %d\n",opraiter;
+    write,format="Support diameter        : %.2f\n",a.pupd;
+    write,format="Kernel [pixels]         : %.2f\n",a.kernd;
+    write,format="Mask diameter           : %.2f\n",a.stfmaskd;
+    write,format="foc-defoc defocus       : %.2f\n",a.defoc_scaling;
+    write,format="Pixel size scaling      : %.2f\n",a.psize;
+    if (!opra_brief_printout) {
+      for (i=1;i<=opp.npos;i++) {
+        write,format="Diff. TT (imset%d) [pix] : Tip: ",i;
+        for (j=1;j<=opp.nim;j++) write,format="%+.2f ",(*a.diff_tt)(1,j,i);
+        write,format="%s","| Tilt: ";
+        for (j=1;j<=opp.nim;j++) write,format="%+.2f ",(*a.diff_tt)(2,j,i);
+        write,"";
+      }
+      for (i=1;i<=opp.npos;i++) {
+        write,format="Intens. ratii (imset%d)  : %.2f",i,(*a.amps)(1,i);
+        for (j=2;j<=opp.nim;j++) write,format=",%.2f",(*a.amps)(j,i);
+        write,"";
+      }
+    }
+    if (yao) {
+      nmo = max(nmodes);
+      write,format="%s","DM                      : ";
+      for (nm=1;nm<=ndm;nm++) write,format="%7d  ",nm;
+      write,"";
+      for (i=2;i<=min(nmo,nmodes_max4printout);i++) {
+        write,format="a(%2d) [mrd]             : ",i;
+        for (nm=1;nm<=ndm;nm++) {
+          if (i>nmodes(nm)) write,format="%s","      -  ";
+          else write,format="%+7.0f  ",1000*(*(*a.coefs)(nm))(i);
+        }
+        write,"";
+      }
+    } else {
+      for (i=2;i<=min(nmodes,nmodes_max4printout);i++) {
+        write,format="a(%2d)                   : %+7.0f mrd\n",i,1000*az(i);
+      }
+    }
+  }
 
 }
 

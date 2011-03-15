@@ -359,10 +359,6 @@ func opra_lmfit(f, x, &a, y, w, fit=, correl=, stdev=, gain=, tol=, \
 
     neval_intern = 0;
     while (1) {
-      if (shm_read(shmkey,"redraw")(1)) {
-        pause,50;
-        shm_write,shmkey,"redraw",&([0]);
-      }
       if ((has_svipc)&&(shm_read(shmkey,"stop")(1))) { stop_all=1; goto done; }
       alpha(diag)= 1.0 + lambda;
       anew= a;

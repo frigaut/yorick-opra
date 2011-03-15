@@ -20,47 +20,51 @@
 
 
 struct opra_struct     // struct to describe each input plane
+// most member xfered to fixed size arrays for svipc data xfer
+// nim, npos, im_dim and otf_dim need to be defined before defining
+// this structures (including this file).
 {
-  pointer psf_data;    // 2D image (data)
-  pointer otf_data;    // 2D OTF (complex, re & im)
-  pointer psf;         // model PSF
-  pointer otf;         // 2D model OTF (complex, re & im)
-  float   delta_tt(2); // tip-tilt coefs for this image
-  float   delta_foc;   // defocus coef for this image
-  float   amp;         // amplitude correction for this image
-  float   noise;       // noise in data (just for cosmetic, not used in minim.)
+  float  psf_data(im_dim,im_dim);   // 2D image (data)
+  float  otf_data(otf_sdim,otf_sdim,2); // 2D OTF (complex, re & im)
+  float  psf(im_dim,im_dim);        // model PSF
+  float  otf(otf_sdim,otf_sdim,2);      // 2D model OTF (complex, re & im)
+  float  delta_tt(2);     // tip-tilt coefs for this image
+  float  delta_foc;       // defocus coef for this image
+  float  amp;             // amplitude correction for this image
+  float  noise;           // noise in data (just for cosmetic, not used in minim.)
 };
 
-struct oprapar_struct  // one structure to hold all important parameters and results.
+struct oprapar_struct
+// one structure to hold all important parameters and results.
+// most member xfered to fixed size arrays for svipc data xfer
+// ndm, otf_dim and otf_sdim need to be defined before defining
+// this structures (including this file).
 {
-  long    nim;         // number of images
-  long    npos;        // number of positions
-  long    ndm;         // number of DM (for yao mode)
-  long    ncoefs;      // total number of coefs
-  pointer ncoef_per_dm; // pointer to vector that contains # of coefs (actuator/modes) per dm
-                       // example: ncoefsperdm = &([45,45,25]);
-  pointer coefs;       // modes coefficients
-  string  modes_type;  // type of modes ("kl", "zernikes", "dh" or "yao")
-  pointer phase;       // modelled phase map
-  long    im_dim;      // images size
-  long    otf_dim;     // OTF size for OTF calculations
-  long    otf_sdim;    // OTF size of returned OTF
-  float   pupd;        // pupil diameter
-  pointer pupi;        // pupil (integer, i.e. 0/1)
-  pointer pupr;        // pupil (real = apodized)
-  float   cobs;        // telescope central obstruction (fraction of diameter)
-  pointer modes;       // mode map data cube
-  string  action;      // string for plots, current status/action
-  pointer iter_v;      // iteration vector
-  pointer dist_v;      // distance (data-model rms)
-  pointer stfmask;     // source TF mask array
-  pointer kernel;      // Blur kernel array
-  long    winnum;
+  long    nim;                       // number of images
+  long    npos;                      // number of positions
+  long    ndm;                       // number of DM (for yao mode)
+  long    ncoefs;                    // total number of coefs
+  long    im_dim;                    // images size
+  long    otf_dim;                   // OTF size for OTF calculations
+  long    otf_sdim;                  // OTF size of returned OTF
+  float   pupd;                      // pupil diameter
+  float   cobs;                      // telescope central obstruction (fraction of diameter)
+  long    ncoef_per_dm(ndm);         // vector that contains # of coefs (actuator/modes) per dm
+  float   phase(otf_dim,otf_dim,npos); // modelled phase map
+  float   pupi(otf_dim,otf_dim);     // pupil (integer, i.e. 0/1)
+  float   pupr(otf_dim,otf_dim);     // pupil (real = apodized)
+  float   stfmask(otf_sdim,otf_sdim);// source TF mask array
+  float   kernel(otf_sdim,otf_sdim); // Blur kernel array
+  pointer coefs;                     // modes coefficients
+  pointer modes;                     // mode map data cube
+  long    winnum;                    // first window # in serie
+  string  modes_type;                // type of modes ("kl", "zernikes", "dh" or "yao")
+  string  action;                    // string for plots, current status/action
 };
 
 struct opra_a_struct   // holds variables passed to opra_foo()
 {
-  float   pupd; //=-9999
+  float   pupd;
   float   kernd;
   float   stfmaskd;
   float   defoc_scaling;
