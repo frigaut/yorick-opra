@@ -3,6 +3,7 @@ cd,"/home/frigaut/mcao/myst/yorick";
 require,"yao_mcao.i";
 cd,cwd;
 aoread,"opra_test3.par";
+
 sim.verbose=0;
 aoinit,disp=1,clean=1;
 loop.gain=0.;
