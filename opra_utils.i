@@ -212,7 +212,6 @@ func opra_info_and_plots(a,opp,op,yao=,star=,noplots=,noprint=)
       pli,psf,(i-1),1,(i-1)+1,2;
       plt,"Model",(i-1)+0.5,2,tosys=2,height=6,justify="CT",color="white";
     }
-    //    if (hitReturn()=="s") error;
   }
   plt,"Images",0.145,0.882,tosys=0,height=10;
 

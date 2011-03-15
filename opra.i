@@ -540,7 +540,7 @@ func opra_foo(x,b)
           opra_info_and_plots,a,opp,op(,n),yao=0,star=1,noplots=1;
         } else opra_info_and_plots,a,opp,op;
       } else {
-        if ((!gui)&&(n==1)) {
+        if ((!has_svipc)&&(n==1)) {
           window,opp.winnum+opp.npos;
           mircube(,,1) *= ipupil;
           tv,mircube(,*),square=1;
@@ -556,7 +556,7 @@ func opra_foo(x,b)
             opra_info_and_plots,a,opp,op(,n),yao=1,star=n,noplots=1;
           }
         } else opra_info_and_plots,a,opp,op(,n),yao=1,star=n;
-        if ((!gui)&&(n==opp.npos)) pause,100; // give time for graphci update
+        if ((!has_svipc)&&(n==opp.npos)) pause,100; // give time for graphic update
       }
     }
 
