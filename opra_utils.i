@@ -229,8 +229,6 @@ func opra_info_and_plots(a,opp,op,yao=,star=,noplots=,noprint=)
     pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
   } else {
     if (has_svipc) {
-      for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(emodes)(,,i);
-    } else {
       for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
     }
   }
