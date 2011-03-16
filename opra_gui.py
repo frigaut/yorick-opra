@@ -79,12 +79,6 @@ class opra:
 
    done_init = 0
 
-   def area_expose_cb(self, area, event):
-      # self.style = self.area.get_style()
-      # self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
-      self.draw_pixmap(0, 0)
-      return True
-
    def on_about_activate(self,wdg):
       dialog = self.glade.get_widget('aboutdialog')
       dialog.run()
