@@ -4,6 +4,7 @@ sim.name            = "Toy system with DH";
 sim.pupildiam       = 128;
 sim.debug           = 0;
 sim.verbose         = 1;
+sim.pupilapod     = 1;
 
 //-------------------------------
 atm.dr0at05mic	    = 1e-20;  // this is r0=0.166 at 550 nm

@@ -29,6 +29,15 @@ func opra_win_init(xid,..)  // main display window.
       if (window_exists(winnum+opp.npos)) winkill,winnum+opp.npos;
       window,winnum+opp.npos,style="nobox.gs",width=0,height=0,\
         dpi=fdpi,wait=0,parent=xids(opp.npos+1);
+      if (window_exists(winnum+opp.npos)) winkill,winnum+opp.npos+1;
+      window,winnum+opp.npos+1,width=0,height=0,\
+        dpi=fdpi,wait=0,parent=xids(opp.npos+2);
+      plp,wfs.gspos(2,),wfs.gspos(1,),symbol='*',color="red";
+      // for (i=1;i<=numberof(wfs.gspos(1,));i++) \
+      for (i=1;i<=nwfs;i++) \
+        plt,swrite(format="  %d",i),wfs.gspos(1,i),wfs.gspos(2,i),tosys=1;
+      plmargin;
+      redraw;
     }
   }
   sem_give,semkey,0;

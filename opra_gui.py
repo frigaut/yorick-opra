@@ -36,10 +36,10 @@ class opra:
       # Create a new notebook, place the position of the tabs
       table = gtk.Table(3,6,False)
       self.glade.get_widget('tabs').add(table)
-      notebook = gtk.Notebook()
-      notebook.set_tab_pos(gtk.POS_TOP)
-      table.attach(notebook, 0,6,0,1)
-      notebook.show()
+      self.notebook = gtk.Notebook()
+      self.notebook.set_tab_pos(gtk.POS_TOP)
+      table.attach(self.notebook, 0,6,0,1)
+      self.notebook.show()
       self.show_tabs = True
       self.show_border = True
 
@@ -50,7 +50,7 @@ class opra:
          bufferl = " %d " % (i+1)
          darea.show()
          label = gtk.Label(bufferl)
-         notebook.append_page(darea, label)
+         self.notebook.append_page(darea, label)
          # table.show()
          swid = swid+str(darea.window.xid)+" ";
 
@@ -60,7 +60,15 @@ class opra:
          bufferl = "DM"
          darea.show()
          label = gtk.Label(bufferl)
-         notebook.append_page(darea, label)
+         self.notebook.append_page(darea, label)
+         swid = swid+str(darea.window.xid)+" ";
+
+         darea = gtk.DrawingArea()
+         darea.set_size_request(6*dpi,6*dpi)
+         bufferl = "Geometry"
+         darea.show()
+         label = gtk.Label(bufferl)
+         self.notebook.append_page(darea, label)
          swid = swid+str(darea.window.xid)+" ";
 
       table.show()
@@ -85,6 +93,12 @@ class opra:
    def on_quit_activate(self,*args):
       self.py2yo('opra_quit')
       raise SystemExit
+
+   def on_tabs_prev_clicked(self,wdg):
+      self.notebook.prev_page()
+
+   def on_tabs_next_clicked(self,wdg):
+      self.notebook.next_page()
 
    #
    # Yorick to Python Wrapper Functions

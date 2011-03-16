@@ -1,7 +1,8 @@
-cwd = pwd();
-cd,"/home/frigaut/mcao/myst/yorick";
-require,"yao_mcao.i";
-cd,cwd;
+// cwd = pwd();
+// cd,"/home/frigaut/mcao/myst/yorick";
+// require,"yao_mcao.i";
+// cd,cwd;
+require,"yao.i";
 aoread,"opra_test3.par";
 
 sim.verbose=0;

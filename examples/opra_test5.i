@@ -1,16 +1,16 @@
 require,"opra.i";
 
-nmodesmax = 45;      // number of modes
 modes     = "yao";
 lambda    = 1.65e-6; // [m]
 pixsize   = 0.020;   // [arcsec]
 allfocs   = [0.,1.52,-1.52]*1.5;
 parfile   = "opra_test4.par";
 
-cwd = pwd();
-cd,"/home/frigaut/mcao/myst/yorick";
-require,"yao_mcao.i";
-cd,cwd;
+// cwd = pwd();
+// cd,"/home/frigaut/mcao/myst/yorick";
+// require,"yao_mcao.i";
+// cd,cwd;
+require,"yao.i";
 aoread,parfile;
 
 imcube = [];

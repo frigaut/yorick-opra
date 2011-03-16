@@ -482,7 +482,8 @@ func opra_foo(x,b)
     opp.phase(,,n) *= 0;
 
     if (opp.modes_type=="yao") {
-      n12 = wfs(n).n12;
+      wdim = dimsof(*wfs(n)._fimage)(2);
+      n12 = _(opp.otf_dim/2-wdim/2+1,opp.otf_dim/2+wdim/2);
       opp.phase(n12(1):n12(2),n12(1):n12(2),n) = *wfs(n)._fimage;
     } else {
       // FIXME multiple positions? nope.

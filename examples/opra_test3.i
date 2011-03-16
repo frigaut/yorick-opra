@@ -6,10 +6,7 @@ pixsize   = 0.020;   // [arcsec]
 allfocs   = [0.,1.52,-1.52]*1.5;
 parfile   = "opra_test3.par";
 
-cwd = pwd();
-cd,"/home/frigaut/mcao/myst/yorick";
-require,"yao_mcao.i";
-cd,cwd;
+require,"yao.i";
 aoread,parfile;
 
 
