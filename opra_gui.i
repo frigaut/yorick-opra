@@ -66,12 +66,10 @@ func opra_quit(void)
 }
 
 
-func opra_plots(void)
+func opra_gui_plots(void)
 {
   read_data_from_master,a,op,opp,mircube;
-  for (n=1;n<=opp.npos;n++) {
-    opra_info_and_plots,a,opp,op(,n),yao=(opp.modes_type=="yao"),star=n,noprint=1;
-  }
+  opra_info_and_plots,a,opp,op,noprint=1;
   if (opp.modes_type=="yao") {
     window,opp.winnum+opp.npos;
     tv,mircube(,*),square=1;
@@ -94,7 +92,7 @@ func opra_gui_poll(void)
   // check if we have to do plots:
   if (shm_read(shmkey,"do plots")(1)) {
     shm_write,shmkey,"do plots",&([0]);
-    status = opra_plots();
+    status = opra_gui_plots();
   }
 
   after,0.05,opra_gui_poll;

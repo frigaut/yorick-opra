@@ -85,7 +85,7 @@
                 </child>
                 <child>
                   <widget class="GtkButton" id="next_stage">
-                    <property name="label" translatable="yes">Next OPRA stage</property>
+                    <property name="label" translatable="yes">Next Pass</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
@@ -109,6 +109,20 @@
                   <packing>
                     <property name="expand">False</property>
                     <property name="position">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <widget class="GtkButton" id="quit_opra">
+                    <property name="label" translatable="yes">Quit OPRA</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="events">GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK</property>
+                    <signal name="clicked" handler="on_quit_activate"/>
+                  </widget>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="position">3</property>
                   </packing>
                 </child>
                 <child>
@@ -170,11 +184,8 @@
                   <packing>
                     <property name="expand">False</property>
                     <property name="fill">False</property>
-                    <property name="position">3</property>
+                    <property name="position">4</property>
                   </packing>
-                </child>
-                <child>
-                  <placeholder/>
                 </child>
                 <child>
                   <placeholder/>
@@ -223,7 +234,8 @@
     <property name="license" translatable="yes">GPL</property>
     <property name="authors">Francois Rigaut
 Damien "brujo" Gratadour
-Benoit Neichel</property>
+Benoit Neichel
+Aurea Garcia-Rissmann (disk harmonic library)</property>
     <property name="documenters">Francois Rigaut</property>
     <child internal-child="vbox">
       <widget class="GtkVBox" id="dialog-vbox1">

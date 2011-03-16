@@ -309,7 +309,6 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   for (n=2;n<=numberof(nmodesv);n++) {
     aold = sdimold = [];
     if (use_mode!="yao") (*a.coefs)(1) = &( _(*(*a.coefs)(1),array(0,nmodesv(n)-nmodesv(n-1))) );
-    // a.psize = clip(a.psize,-10,10);
     opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                         passn++,nmodesv(n));
 
@@ -323,7 +322,6 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     if (fix_defoc) fit.defoc_scaling = 0;
     (*fit.diff_tt)(,1,1) = 0;
     if (fix_diff_tt) (*fit.diff_tt) = 0;
-
 
     // we want to filter focus at first.
     // Note that focus is a different mode depending to modal basis.
@@ -344,8 +342,6 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   write,format="Elapsed time = %f sec\n",tac();
 
   opp.coefs=&(*a.coefs);
-
-  // if (has_svipc) shm_cleanup,shmkey;
 
   return opp;
 }
@@ -392,15 +388,9 @@ func opra_foo(x,b)
   // This is a bit adhoc, although the defaults look fine. FIXME?
   a.pupd          = opp.pupd+atan(a.pupd)*5;
   a.kernd         = atan(a.kernd)*10;
-  //if(a.kernd > 1.01) a.kernd = 1.0;
   a.stfmaskd      = 1./(0.05+atan(a.stfmaskd)/pi*0.0999);
   a.defoc_scaling = 1.+atan(a.defoc_scaling)*1.;//was *3 orginally
-  //lets try something else:
-  //if(a.defoc_scaling > 1.101) a.defoc_scaling = 1.1;
-  //if(a.defoc_scaling < 0.899) a.defoc_scaling = 0.9;
   a.psize         = 1.+atan(a.psize)*0.2;
-  //if(fix_amp)   *a.amps = 1.;//+atan(*a.amps)*0.6;
-  //else  *a.amps = 1.+atan(*a.amps)*0.6;
 
   a.amps = &(1.+atan(*a.amps)*0.6);
   //if (*a.amps == 0)  *a.amps = 1.0;
@@ -425,7 +415,6 @@ func opra_foo(x,b)
       opp.pupi = ipupil;
       opp.pupr = pupil;
       prepzernike,sim._size,sim.pupildiam,sim._cent,sim._cent;
-      // prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
     } else {
       write,"Generating modes";
       opp.modes = &( opra_gen_modes(opp.otf_dim,a.pupd,nmodes,\
@@ -441,9 +430,9 @@ func opra_foo(x,b)
                             cobs=opp.cobs);
       //opp.pupr = opp.pupi;
       prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
+      // above: needed anyway for added defocus
+      // FIXME: need to modify xc/yc as using kl???
     }
-    // above: needed anyway for added defocus
-    // FIXME: need to modify xc/yc as using kl???
   }
 
   // if source TF mask diameter has changed. Recompute:
@@ -530,38 +519,22 @@ func opra_foo(x,b)
       // append to previous OTF all object:
       grow,all_otf,op(i,n).otf(,,,-);
     }
+  }
 
-    if (newiter) {
-      // ok, here it's somewhat more complicated than it should be, but I want
-      // to keep compatibility with the non-shm mode...
-      if (opp.modes_type!="yao") {
-        if (has_svipc) {
-          write_data_to_fork,a,op,opp,[0];
-          shm_write,shmkey,"do plots",&([1]);
-          opra_info_and_plots,a,opp,op(,n),yao=0,star=1,noplots=1;
-        } else opra_info_and_plots,a,opp,op;
-      } else {
-        if ((!has_svipc)&&(n==1)) {
-          window,opp.winnum+opp.npos;
-          mircube(,,1) *= ipupil;
-          tv,mircube(,*),square=1;
-          window,opp.winnum+n-1;
-        }
-        if (has_svipc) {
-          if (n==opp.npos) {
-            // write to shm
-            mircube(,,1) *= ipupil;
-            write_data_to_fork,a,op,opp,mircube;
-            // trigger fork display
-            shm_write,shmkey,"do plots",&([1]);
-            opra_info_and_plots,a,opp,op(,n),yao=1,star=n,noplots=1;
-          }
-        } else opra_info_and_plots,a,opp,op(,n),yao=1,star=n;
-        if ((!has_svipc)&&(n==opp.npos)) pause,100; // give time for graphic update
+  if (newiter) {
+    if (has_svipc) {
+      write_data_to_fork,a,op,opp,mircube;
+      shm_write,shmkey,"do plots",&([1]);
+    } else {
+      if (opp.modes_type=="yao") {
+        window,opp.winnum+opp.npos;
+        tv,mircube(,*),square=1;
       }
     }
-
+    opra_info_and_plots,a,opp,op,noplots=has_svipc;
+    if (!has_svipc) pause,100; // give time for graphic update
   }
+
 
   aold = a;
   newiter=0;
@@ -575,8 +548,6 @@ func opra_foo(x,b)
   for (nm=1;nm<=opp.ndm;nm++) grow,app,(*(*a.coefs)(nm));
   if (opra_coef_regul==[]) opra_coef_regul=1e-3;
   app = app*rms1*numberof(all_otf)/numberof(app)*opra_coef_regul;
-  // app = app*3e-3*rms1;
-  // sum(all_otf); app(rms);
   if (opp.npos>1) grow,all_otf,app;
 
   return all_otf;

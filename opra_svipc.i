@@ -37,6 +37,7 @@ func opra_svipc_init(void)
 
 func write_data_to_fork(a,op,opp,mircube)
 {
+  if (mircube==[]) mircube=[0];
   shm_free,shmkey,"opra_structs";
   s = vsave("op",op,"opp",opp,"a",a,"mircube",mircube,\
       "lmfititer_pass",lmfititer_pass,"lmfit_itmax", \
