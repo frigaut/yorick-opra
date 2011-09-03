@@ -77,8 +77,6 @@ class opra:
       # run
       gtk.main()
 
-   done_init = 0
-
    def on_about_activate(self,wdg):
       dialog = self.glade.get_widget('aboutdialog')
       dialog.run()

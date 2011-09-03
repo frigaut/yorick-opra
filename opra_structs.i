@@ -65,7 +65,7 @@ struct oprapar_struct
 struct opra_a_struct   // holds variables passed to opra_foo()
 {
   float   pupd;
-  float   kernd;
+  float   kernd(3);
   float   stfmaskd;
   float   defoc_scaling;
   float   psize;
