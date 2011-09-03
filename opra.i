@@ -30,7 +30,7 @@ OPRA_VERSION = "1.8";
 func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
           noise=, pupd=, otf_dim=, progressive=, niter=, fix_amp=, fix_pix=,
           fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, winnum=,
-          dpi=, pal=, gui=)
+          dpi=, pal=, gui=,svipc=,nm=)
 /* DOCUMENT opra(images,defocs,nmodes=,use_mode=)
    images:         Image data cube (data). These must be at least shannon sampled,
                    ideally 2x shannon or more.
@@ -62,10 +62,12 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
    winnum=         Output graphical window number
    dpi=            Output graphical window dpi
    pal=            Output graphical window palette
+   svipc=          Force svipc on (1) or off (0)
+   nm=             Printout mode coefficients in nm instead of mrd.
 
    Note: lambda, pixsize and teldiam are only used to get a starting value
    for the pupil diameter (in pixels). Lambda is also used to convert modes
-   coefficients from radians to nm.
+   coefficients from radians to nm if requested (nm=1).
 
    The input images should be prepared as follow:
      - Background must be subtracted (not super critical but helps)
@@ -81,8 +83,11 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   extern itvec,distvec;
   extern opp,op;
   extern has_svipc;
+	extern want_nanometer;
+	extern _opra_lambda;
 
-  if ((find_in_path("svipc.i")!=[])&&(gui)) has_svipc=1;
+  if (svipc!=[]) has_svipc=svipc; \
+  else if ((find_in_path("svipc.i")!=[])&&(gui)) has_svipc=1;
 
   //#################################
   // Initialize some general variables
@@ -91,6 +96,8 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   if (winnum==[]) winnum = 0;
   if (!noise)     noise = 0.;
   if (!dpi)       dpi = 130;
+  if (nm)         want_nanometer=1;
+  _opra_lambda = lambda;
   itvec = distvec = [];
   opra_iter = lmfititer = 0;
   passn = 1;
@@ -167,10 +174,16 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     opp.ncoef_per_dm = [opp.ncoefs];
   }
 
-  // svipc and GUI:
+  // svipc and spawn GUI:
   if (has_svipc) {
     require,"opra_svipc.i";
-    status = opra_svipc_init();
+    lmfititer_pass=lmfit_itmax=lmfititer=0;
+    status = opra_svipc_init(dpi);
+    if (use_mode=="yao") {
+      shm_write,shmkey,"use_mode",&use_mode;
+			write_yao_struct_to_shm,wfs,dm;
+		}
+    write_opra_struct_to_shm,fresh_a(opp),op,opp;
   }
 
   //##########################################
@@ -201,14 +214,19 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     for (i=1;i<=opp.nim;i++) {
       op(i,n).psf_data  = images(,,i,n);
       op(i,n).otf_data  = get_mtf(images(,,i,n),opp.otf_sdim);
+      op(i,n).otf_data(center,center,)  = 0;
       // get rid of (0,0) frequency information
       // grow,data,(*op(i,n).otf_data)(,,,-);
       op(i,n).delta_foc = defocs(i);
       op(i,n).noise     = noise;
     }
   }
-  data = op.otf_data;
-  data(center,center,,) = 0;
+  disk = dist(opp.otf_sdim)<(opp.otf_sdim/2.+1);
+  xy = indices(opp.otf_sdim);
+  extern wotf;
+  wotf = where( (xy(,,1)>=center) & (disk) );
+  data = op.otf_data(*,,,)(wotf,,,);
+  // data(center,center,,) = 0;
 
   data = float(data(*)); // float to save RAM
   if (opp.npos>1) grow,data,array(0.0f,opp.ncoefs);
@@ -252,7 +270,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   // See the parameters descriptions in DOCUMENT section of opra_foo.
   // initialize "a" (the coefficients to find)
   a = fresh_a(opp);
-  a.kernd    = 0.;
+  a.kernd    = [0.,0,0];
   a.stfmaskd = -100.;
   opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                       passn++,nmodesv(1));
@@ -260,11 +278,11 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   // filter some parameters. Use fit keyword of lmfit.
   fit = fresh_a(opp,val=1);
   fit.pupd     = 0;
-  fit.kernd    = 0;
+  fit.kernd    = [1,1,1]*0;
   fit.stfmaskd = 0;
   if (fix_amp)   *fit.amps = 0;
   if (fix_pix)   fit.psize = 0;
-  if (fix_kern)  fit.kernd = 0;
+  if (fix_kern)  fit.kernd = [0,0,0];
   if (fix_defoc) fit.defoc_scaling = 0;
   // We want to peg first in-focus image:
   (*fit.diff_tt)(,1,1) = 0;
@@ -300,6 +318,10 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     }
   }
 
+  // get reference
+  // extern all_otf_ref, a_ref;
+  // all_otf_ref = opra_foo(x,a);
+  // a_ref = a;
   // call lmfit
   res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
                    tol=1e-6,eps=0.01,itmax=nitv(1),aregul=0.);
@@ -318,7 +340,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     fit.stfmaskd = 0;
     if (fix_amp)   *fit.amps = 0;
     if (fix_pix)   fit.psize = 0;
-    if (fix_kern)  fit.kernd = 0;
+    if (fix_kern)  fit.kernd = [0,0,0];
     if (fix_defoc) fit.defoc_scaling = 0;
     (*fit.diff_tt)(,1,1) = 0;
     if (fix_diff_tt) (*fit.diff_tt) = 0;
@@ -334,7 +356,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
 
     // call lmfit
     res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
-                     tol=1e-12,eps=0.01,itmax=nitv(n),aregul=0.);
+                     tol=1e-14,eps=0.01,itmax=nitv(n),aregul=0.);
     if (stop_all) goto fin;
   }
 
@@ -366,11 +388,12 @@ func opra_foo(x,b)
   extern aold,sdimold;
   extern lmfititer,newiter,opra_iter;
 
+  write,format="%s",".";
   opra_iter++;
   if (aold==[]) {
     aold=opra_a_struct();
     aold.pupd = -9999;
-    aold.kernd = -9999;
+    aold.kernd = [-9999,-9999,1];
   }
   if (sdimold==[]) sdimold=0;
 
@@ -387,7 +410,7 @@ func opra_foo(x,b)
   // limits a's:
   // This is a bit adhoc, although the defaults look fine. FIXME?
   a.pupd          = opp.pupd+atan(a.pupd)*5;
-  a.kernd         = atan(a.kernd)*10;
+  // a.kernd         = atan(a.kernd)*10;
   a.stfmaskd      = 1./(0.05+atan(a.stfmaskd)/pi*0.0999);
   a.defoc_scaling = 1.+atan(a.defoc_scaling)*1.;//was *3 orginally
   a.psize         = 1.+atan(a.psize)*0.2;
@@ -433,6 +456,12 @@ func opra_foo(x,b)
       // above: needed anyway for added defocus
       // FIXME: need to modify xc/yc as using kl???
     }
+    // cache:
+    extern z2ext,z3ext,z4ext;
+    z2ext = zernike_ext(2);
+    z3ext = zernike_ext(3);
+    z4ext = zernike_ext(4);
+
   }
 
   // if source TF mask diameter has changed. Recompute:
@@ -443,9 +472,18 @@ func opra_foo(x,b)
   }
 
   // blur kernel:
-  if (aold.kernd!=a.kernd) \
-    //    opp.kernel = &( roll(abs(fft(makegaussian(opp.otf_sdim,a.kernd),1))) );
-    opp.kernel = makegaussian(opp.otf_sdim,100./(1e-6+a.kernd^2.));
+  if (anyof(aold.kernd!=a.kernd)) {
+    // opp.kernel = makegaussian(opp.otf_sdim,100./(1e-6+a.kernd^2.));
+    xy = indices(opp.otf_sdim)-opp.otf_sdim/2.-0.5;
+    // xy(,,1) *= 2e-5/(1e-3+a.kernd(1)^2.);
+    // xy(,,2) *= 2e-5/(1e-3+a.kernd(2)^2.);
+    // xy(,,1) *= 0.3*abs(atan(a.kernd(1)));
+    // xy(,,2) *= 0.3*abs(atan(a.kernd(2)));
+    xy =  xy(,,+) * mrot(a.kernd(3)*1000.)(+,);
+    opp.kernel = exp( -0.5*((xy(,,1)*a.kernd(1)/sqrt(2.))^2 \
+                           +(xy(,,2)*a.kernd(2)/sqrt(2.))^2.));
+    // kernd 1 and 2 are thus sigmas
+  }
 
   // Iteration accounting
   if (lmfititer==[]) lmfititer=0;
@@ -465,6 +503,9 @@ func opra_foo(x,b)
     multWfs,1,disp=0;
   }
 
+  // precompute:
+  kern_stfmask = opp.kernel*opp.stfmask;
+
   // loop on position
   for (n=1;n<=opp.npos;n++) {
 
@@ -480,42 +521,43 @@ func opra_foo(x,b)
       for (i=2;i<=nmodes;i++) opp.phase(,,n) += az(i)*(*opp.modes)(,,i);
     }
 
-    // cache:
-    z2ext = zernike_ext(2);
-    z3ext = zernike_ext(3);
-    z4ext = zernike_ext(4);
-
     // loop on images (defocs)
     for (i=1;i<=opp.nim;i++) {
+      // same = allof(*(*a.coefs)(1)==*(*aold.coefs)(1));
+      // for (nm=2;nm<=opp.ndm;nm++) \
+        // same = (same && allof(*(*a.coefs)(1)==*(*aold.coefs)(1)));
+
       // compute defoc to add to phase
-      defoc = op(i,n).delta_foc *  a.defoc_scaling * z4ext;
+      defoc = (op(i,n).delta_foc *  a.defoc_scaling) * z4ext;
       // compute tiptilt to add to phase
       // if (i>=2) {
       if ((n==1)&&(i==1)) tt = 0; // no special TT passed for image#1 (TT in "phase")
       else {
-        tt = (*a.diff_tt)(1,i,n) * z2ext +       \
+        tt = (*a.diff_tt)(1,i,n) * z2ext +   \
              (*a.diff_tt)(2,i,n) * z3ext;
       }
       // compute complex wavefront
-      phi     = array(complex,[2,opp.otf_dim,opp.otf_dim]);
-      phi.re  = opp.pupr * cos(opp.phase(,,n) + tt + defoc);
-      phi.im  = opp.pupr * sin(opp.phase(,,n) + tt + defoc);
+      // phi     = array(complex,[2,opp.otf_dim,opp.otf_dim]);
+      pha     = opp.phase(,,n) + tt + defoc;
+      // phi.re  = opp.pupr * cos(pha);
+      // phi.im  = opp.pupr * sin(pha);
       // compute PSF
-      psf     = roll(abs(fft(phi,1))^2.);
+      // psf     = roll(abs(fft(phi,1))^2.);
+      psf = calc_psf_fast(opp.pupr,pha);
       // normalize
-      psf     = psf/sum(psf) * (*a.amps)(i,n);
+      psf     = psf/sum(psf) * abs((*a.amps)(i,n));
       op(i,n).psf  = psf;
       // Note that above, PSF does not reflect the true psf, as the source
       // mask effect is not included. But we don't need it at each opra_foo()
       // call, just for display, so I did it in opra_info_and_plots()
       // compute OTF, include attenuation by blur (kernel) and mask (source size)
-      op(i,n).otf  = get_mtf(psf,opp.otf_sdim) * (opp.kernel*opp.stfmask)(,,-);
+      op(i,n).otf  = get_mtf(psf,opp.otf_sdim) * kern_stfmask(,,-);
       // Pixel size adjustement:
       center = opp.otf_sdim/2+1;
       xy = (indgen(opp.otf_sdim)-center)*a.psize+center;
       op(i,n).otf(,,1) = bilinear(op(i,n).otf(,,1),xy,xy,grid=1);
       op(i,n).otf(,,2) = bilinear(op(i,n).otf(,,2),xy,xy,grid=1);
-      //    (*op(i).otf)(center,center,) = 0.;
+      op(i,n).otf(center,center,) = 0.; // done below.
       // append to previous OTF all object:
       grow,all_otf,op(i,n).otf(,,,-);
     }
@@ -523,8 +565,8 @@ func opra_foo(x,b)
 
   if (newiter) {
     if (has_svipc) {
-      write_data_to_fork,a,op,opp,mircube;
-      shm_write,shmkey,"do plots",&([1]);
+      write_opra_struct_to_shm,a,op,opp,mircube;
+      pyk,"opra_gui_plots";
     } else {
       if (opp.modes_type=="yao") {
         window,opp.winnum+opp.npos;
@@ -540,8 +582,8 @@ func opra_foo(x,b)
   newiter=0;
 
   // get rid of (0,0) frequency information
-  all_otf(center,center,) = 0;
-
+  // all_otf(center,center,) = 0;
+  all_otf = all_otf(*,,)(wotf,,);
   all_otf = float(all_otf(*)); // to save RAM
   rms1=(all_otf)(rms);
   app = [];
@@ -559,7 +601,7 @@ func opra_quit(void)
 {
   write,format="%s\n","Asking fork to quit";
   // notify fork to quit:
-  shm_write,shmkey,"quit?",&([1]);
+  pyk,"fork_quit";
   // waiting for acknowledgment:
   tic,7;
   while ((!shm_read(shmkey,"quit!")(1))&&(tac(7)<1.0)) usleep,20;
