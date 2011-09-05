@@ -1,9 +1,10 @@
 # these values filled in by    yorick -batch make.i
-Y_MAKEDIR=/usr/lib/yorick/2.2
-Y_EXE=/usr/lib/yorick/2.2/bin/yorick
+Y_MAKEDIR=/Users/frigaut/yorick/relocate
+Y_EXE=/Users/frigaut/yorick/relocate/bin/yorick
 Y_EXE_PKGS=
-Y_EXE_HOME=/usr/lib/yorick/2.2
-Y_EXE_SITE=/usr/share/yorick/2.2
+Y_EXE_HOME=/Users/frigaut/yorick/relocate
+Y_EXE_SITE=/Users/frigaut/yorick/relocate
+Y_HOME_PKG=
 
 #
 # !! THIS IS NOT A PLUGIN !!
@@ -16,7 +17,7 @@ Y_EXE_SITE=/usr/share/yorick/2.2
 # used for distribution
 PKG_NAME = opra
 # include files for this package
-PKG_I=opra.i opra_lmfit.i opra_utils.i opra_caller.i opra_libkl.i opra_libdh.i opra_structs.i opra_gui.i opra_svipc.i
+PKG_I=opra.i opra_lmfit.i opra_utils.i opra_libkl.i opra_libdh.i opra_structs.i opra_gui.i opra_svipc.i
 
 # autoload file for this package, if any
 PKG_I_START =
