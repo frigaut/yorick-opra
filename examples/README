@@ -1,0 +1,9 @@
+To run the test cases, you need to run the gen routines first, e.g.:
+
+yorick -i gen_test3_images.i  (does for test 1 through 3)
+yorick -i opra_test1.i
+
+Currently (2011sep04), test 3 and 5 are broken (something with svipc).
+Some tests require gtk, so if you don't have gtk they will fail.
+
+

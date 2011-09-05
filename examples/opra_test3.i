@@ -27,6 +27,7 @@ for (i=1;i<=3;i++) {
   for (n=1;n<=5;n++) {
     imcube(,,i,n) *= (imamp(i,n)=(0.75+0.5*random()));
     imcube(,,i,n) = roll(imcube(,,i,n),(imoff(,i,n)=long([-2+4*random(),-2+4*random()])));
+    imcube(,,i,n) = imcube(,,i,n) + 0.8*roll(imcube(,,i,n),[0,1,0,0])+ 0.4*roll(imcube(,,i,n),[1,1,0,0])
   }
 }
 
