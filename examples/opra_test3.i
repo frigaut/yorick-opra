@@ -5,6 +5,7 @@ lambda    = 1.65e-6; // [m]
 pixsize   = 0.020;   // [arcsec]
 allfocs   = [0.,1.52,-1.52]*1.5;
 parfile   = "opra_test3.par";
+nmodesmax = 15;
 
 require,"yao.i";
 aoread,parfile;

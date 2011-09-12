@@ -4,7 +4,7 @@
    Authors: F.Rigaut, May 2007
 */
 
-require,"pyk.i";
+require,"opra_pyk.i";
 require,"opra_svipc.i";
 require,"yao.i";
 
@@ -14,8 +14,7 @@ fdpi   = long(tonum(a(-2)));
 shmkey = long(tonum(a(-1)));
 semkey = long(tonum(a(0)));
 
-use_mode = shm_read(shmkey,"use_mode")
-if (use_mode=="yao") read_yao_struct_from_shm,wfs,dm;
+read_yao_struct_from_shm,wfs,dm;
 read_opra_struct_from_shm,a,op,opp,mircube;
 nwfs = numberof(wfs);
 
@@ -49,6 +48,7 @@ func opra_win_init(xid,..)
       redraw;
     }
   }
+  // write,"GUI window realized, giving sem 0 to master";
   sem_give,semkey,0;
 }
 
@@ -70,7 +70,7 @@ func opra_quit(void)
 {
   shm_write,shmkey,"stop",&([1]);
   shm_write,shmkey,"quit?",&([1]);
-  write,format="%s\n","Quit queued";
+  // write,format="%s\n","Quit queued";
 }
 
 
@@ -88,8 +88,9 @@ func opra_gui_plots(void)
 
 func fork_quit(void)
 {
-  write,format="%s\n","Fork quitting";
-  pyk,"on_quit_requested()";
+  if (_pyk_proc==[]) return;
+  // write,format="%s\n","Fork quitting";
+  _pyk_proc,"on_quit_requested()\n";
   _pyk_proc = [];
   shm_write,shmkey,"quit!",&([1]);
   quit;

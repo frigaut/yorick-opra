@@ -24,7 +24,6 @@ require,"opra_utils.i";   // plots, util functions.
 
 nmodes_max4printout = 30;
 
-
 OPRA_VERSION = "1.8";
 
 func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
@@ -83,11 +82,11 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   extern itvec,distvec;
   extern opp,op;
   extern has_svipc;
-	extern want_nanometer;
-	extern _opra_lambda;
+  extern want_nanometer;
 
   if (svipc!=[]) has_svipc=svipc; \
   else if ((find_in_path("svipc.i")!=[])&&(gui)) has_svipc=1;
+  if (find_in_path("svipc.i")==[]) has_svipc=0;
 
   //#################################
   // Initialize some general variables
@@ -97,7 +96,6 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   if (!noise)     noise = 0.;
   if (!dpi)       dpi = 130;
   if (nm)         want_nanometer=1;
-  _opra_lambda = lambda;
   itvec = distvec = [];
   opra_iter = lmfititer = 0;
   passn = 1;
@@ -179,10 +177,8 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
     require,"opra_svipc.i";
     lmfititer_pass=lmfit_itmax=lmfititer=0;
     status = opra_svipc_init(dpi);
-    if (use_mode=="yao") {
-      shm_write,shmkey,"use_mode",&use_mode;
-			write_yao_struct_to_shm,wfs,dm;
-		}
+    if (wfs==[]) wfs=dm=[0];
+    write_yao_struct_to_shm,wfs,dm;
     write_opra_struct_to_shm,fresh_a(opp),op,opp;
   }
 
@@ -203,7 +199,10 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
       window,winnum+opp.npos,style="nobox.gs",width=long(6.*dpi2/ndm),height=6*dpi2,dpi=dpi2,wait=1;
     }
     window,winnum;
-  } else sem_take,semkey,0; // wait for graphic window to be realized.
+  } else {
+    write,format="%s\n","Waiting for semaphore 0 from child";
+    sem_take,semkey,0; // wait for graphic window to be realized.
+  }
 
   // normalize
   for (i=1;i<=opp.npos;i++) images(,,,i) = images(,,,i)/sum(images(,,1,i));
@@ -566,7 +565,7 @@ func opra_foo(x,b)
   if (newiter) {
     if (has_svipc) {
       write_opra_struct_to_shm,a,op,opp,mircube;
-      pyk,"opra_gui_plots";
+      _yorick_gui_proc,"opra_gui_plots\n";
     } else {
       if (opp.modes_type=="yao") {
         window,opp.winnum+opp.npos;
@@ -601,7 +600,7 @@ func opra_quit(void)
 {
   write,format="%s\n","Asking fork to quit";
   // notify fork to quit:
-  pyk,"fork_quit";
+  _yorick_gui_proc,"fork_quit\n";
   // waiting for acknowledgment:
   tic,7;
   while ((!shm_read(shmkey,"quit!")(1))&&(tac(7)<1.0)) usleep,20;

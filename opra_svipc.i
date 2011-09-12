@@ -1,17 +1,17 @@
 require,"svipc.i";
-require,"pyk.i";
+require,"opra_pyk.i";
 
 func opra_svipc_init(dpi)
 {
-  extern pyk_debug, _pyk_proc;
-
+  extern pyk_debug, _yorick_gui_proc;
   extern am_master;
   extern shmkey,semkey;
-  // shmkey = 0x00abacab;
-  // semkey = 0x0aabacab;
+
   randomize;
   shmkey = long(random()*1e7);
   semkey = long(random()*1e7);
+  // shmkey = 0x0badcafe;
+  // semkey = 0x0badbeef;
   write,format="shmkey = %#x\n",shmkey;
   write,format="semkey = %#x\n",semkey;
 
@@ -26,13 +26,11 @@ func opra_svipc_init(dpi)
   shm_write,shmkey,"opra_structs",&([0]);
 
   // spawn GUI yorick process
-  pyk_debug=1;
   // build command
   pyk_cmd=["yorick","-q","-i","opra_gui.i",swrite(format="%d",dpi),
-          swrite(format="%d",shmkey),swrite(format="%d",semkey)]
+    swrite(format="%d",shmkey),swrite(format="%d",semkey)]
   // spawn it and attach to _pyk_callback (see pyk.i):
-  // pyk_cmd;
-  _pyk_proc = spawn(pyk_cmd, _pyk_callback);
+    _yorick_gui_proc = spawn(pyk_cmd, _pyk_callback);
 
   extern quit;
   quit = opra_quit;
@@ -60,8 +58,8 @@ func write_opra_struct_to_shm(a,op,opp,mircube)
   if (mircube==[]) mircube=[0];
   shm_free,shmkey,"opra_structs";
   s = vsave("op",op,"opp",opp,"a",a,"mircube",mircube,\
-      "lmfititer_pass",lmfititer_pass,"lmfit_itmax", \
-      lmfit_itmax,"lmfititer",lmfititer);
+    "lmfititer_pass",lmfititer_pass,"lmfit_itmax", \
+    lmfit_itmax,"lmfititer",lmfititer);
   shm_write,shmkey,"opra_structs",&s;
 }
 

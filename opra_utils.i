@@ -231,9 +231,7 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       tt = compDmShape(1,&c);
       pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
     } else {
-/*      if (has_svipc) {*/
-	    for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
-/*      }*/
+	  for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
     }
     iminmax = minmax(pha(where(opp.pupi)));
     phase_rms = pha(where(opp.pupi))(rms);
