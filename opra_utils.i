@@ -305,7 +305,7 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
 	conv = 1.;
 	if (want_nanometer) {
 		units = "nm";
-		conv = _opra_lambda*1e9*1e-3/(2.*pi);
+		conv = opp.lambda*1e9*1e-3/(2.*pi);
 	}
 	
   if (has_yao) {

@@ -150,6 +150,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   opp.im_dim   = im_dim;
   opp.winnum   = winnum;
   opp.cobs     = (cobs?cobs:0.);
+  opp.lambda   = lambda;
 
   // type of modes used to build the  phase
   if (strpart(use_mode,1:2) == "ze") opp.modes_type = "zernike";
