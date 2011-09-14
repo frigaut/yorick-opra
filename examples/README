@@ -3,7 +3,7 @@ To run the included examples:
 opra_test6 uses a serie of Gemini images (NIRI). Run it with:
 yorick -i opra_test6.i
 
-To run the other examples, you need to run the gen routines first, e.g.:
+To run the other examples, you need to create the test synthetic images first:
 
 yorick -i gen_test3_images.i  (does for test 1 through 3)
 yorick -i gen_test4_images.i

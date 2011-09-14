@@ -218,6 +218,14 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
     }
     plt,"Images",0.145,0.882,tosys=0,height=10;
 
+    // compute Strehl from psf image:
+		// still to be done
+		// 1) compute the equivalent of op.otf
+		// 2) reproduce step above to compute psf (sans the noise)
+		// have to compute otf with and without kernel to give
+		// strehl only from aberrations, and with ab + kernel
+
+
     // Model phase
     plsys,3;
     ipupr = long(ceil(a.pupd)/2.)+1;
@@ -254,7 +262,7 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       plt,"Distance to data",0.471,0.425,tosys=0,orient=1,height=8,justify="CA";
       plt,"Iteration",0.58,0.357,tosys=0,height=8,justify="CA";
     }
-    ytop = 0.43; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
+    ytop = 0.425; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
     txt = swrite(format="Support diameter [pixels]          : %.2f",a.pupd);
     plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
     txt = swrite(format="Gaussian Kernel FWHM [pixels]      : %.2f %.2f %+.1f",abs(a.kernd(1))*2.35,abs(a.kernd(2))*2.35,a.kernd(3)*1e3);

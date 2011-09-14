@@ -305,8 +305,9 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
       }
       // filter TT on altitude DMs:
       if (nm>1) (*(*fit.coefs)(nm))(1:3) = 0;
+			(*(*fit.coefs)(nm))(nmodesv(1)+1:) = 0;
     }
-  } else {
+	} else {
     (*(*fit.coefs)(1))(1) = 0; // filter piston
     // filter focus:
     if (use_mode=="dh") (*(*fit.coefs)(1))(5) = 0; // for DH
@@ -316,6 +317,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
       if (use_mode=="dh") (*(*fit.coefs)(1))([4,6]) = 0; // for DH
       else (*(*fit.coefs)(1))([5,6]) = 0; // for zernike & KL
     }
+		(*(*fit.coefs)(1))(nmodesv(1)+1:) = 0;
   }
 
   // get reference
@@ -352,6 +354,7 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
       (*(*fit.coefs)(nm))(1) = 0; // filter Piston on all.
       // filter TT and quadratic on altitude DMs:
       if (nm>1) (*(*fit.coefs)(nm))(1:6) = 0;
+			if (n<numberof(nmodesv)) (*(*fit.coefs)(nm))(nmodesv(n)+1:) = 0;
     }
 
     // call lmfit
