@@ -26,20 +26,24 @@ nmodes_max4printout = 30;
 
 OPRA_VERSION = "1.8";
 
-func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
-          noise=, pupd=, otf_dim=, progressive=, niter=, fix_amp=, fix_pix=,
-          fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, winnum=,
-          dpi=, pal=, gui=,svipc=,nm=)
-/* DOCUMENT opra(images,defocs,nmodes=,use_mode=)
-   images:         Image data cube (data). These must be at least shannon sampled,
-                   ideally 2x shannon or more.
-   defocs:         Vector of estimate of defoc for each image (in radians)
+func opra(images, defocs, lambda, pixsize, teldiam, 
+          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, 
+          fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, 
+          winnum=, dpi=, pal=, gui=, svipc=, nm=)
+/* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam, 
+                 nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, 
+                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, 
+                 winnum=, dpi=, pal=, gui=, svipc=, nm=)
+   images:         Image data cube (data). These must be at least Shannon (Nyquist) 
+                   sampled, ideally 2x Shannon or more.
+   defocs:         Vector of estimate of defocus for each image (in radians)
    lambda:         Image wavelength (meter)
    pixsize:        Image pixel size (arcsec)
    teldiam:        Telescope (optics) diameter (meter)
    nmodes=         Number of modes to include in the phase estimate (default 120)
    use_mode=       Can be set to 'zernike' or 'dh' of 'kl' modes (default DH).
-                   This can also be set to 'yao' for use of yao machinery
+                   This can also be set to 'yao' for use of yao machinery (kind of
+                   advanced mode and poorly documented as of Sep2011)
    cobs=           Optics central obstruction, in unit of optics outer diameter
                    (i.e. 0.1 would mean the central obstruction diameter is
                    10% of the optics/pupil/telescope outer diameter). Default 0.
@@ -47,7 +51,6 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
                    is the same in all images). This is just used for display, not
                    used in the phase estimation. Default 0.
    pupd=           Force pupil diameter in pixels
-   otf_dim=        ?
    progressive=    Introduce modes slower than regular version (more steps)
    niter=          Set maximum number of iteration
    fix_amp=        1 if image intensity should not be a free parameter
@@ -367,7 +370,6 @@ func opra(images, defocs, lambda, pixsize, teldiam, nmodes=, use_mode=, cobs=,
   write,format="Elapsed time = %f sec\n",tac();
 
   opp.coefs=&(*a.coefs);
-
   return opp;
 }
 

@@ -1,0 +1,16 @@
+From a training session w/ Julian Christou and Chad Trujillo:
+
+- remove need for zeroes.fits
+- output coefs
+- output phase
+- output image fits 
+- display image residual
+- output ncpa in correct format for altair
+- pupil option (user pupil, best is to pass name of pupil generation function)
+- output dh in terms of Zernike (fit phase map with zernikes)
+- solve a few bugs:
+ - progressive = 1 crashes when nmodesmax<45
+ - check unit of kernel is FWHM, not rms
+ - clean up input parameters (started)
+ - why internsity is not centered on 1.0? because of clipping in data. 
+   option to clip display from zero?
