@@ -1,6 +1,6 @@
 From a training session w/ Julian Christou and Chad Trujillo:
 
-- remove need for zeroes.fits
+- remove need for zeroes.fits (worked around)
 - output coefs
 - output phase
 - output image fits 
