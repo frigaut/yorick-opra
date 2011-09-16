@@ -3,7 +3,7 @@ From a training session w/ Julian Christou and Chad Trujillo:
 - remove need for zeroes.fits (worked around)
 - output coefs
 - output phase
-- output image fits 
+- output images fits
 - display image residual
 - output ncpa in correct format for altair
 - pupil option (user pupil, best is to pass name of pupil generation function)
