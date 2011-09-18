@@ -268,10 +268,12 @@ func opra(images, defocs, lambda, pixsize, teldiam,
     nitv(2) = 30;
   }
 
-  if (use_mode=="yao") { // Can't do progressive with yao (see comment below)
-    nmodesv = [opp.ncoefs,opp.ncoefs];
-    // above: has to be, we don't know "modes" are modal (could be zonal)
-    nitv = [6,niter];
+	if (use_mode=="yao") { // Can't do progressive with yao (see comment below)
+  	if (!(allof(dm.type=="dh")||allof(dm.type=="kl")||allof(dm.type="zernikes"))) {	
+	  	nmodesv = [opp.ncoefs,opp.ncoefs];
+		  // above: has to be, we don't know "modes" are modal (could be zonal)
+		  nitv = [6,niter];
+	  }
   }
 
   //#################################
