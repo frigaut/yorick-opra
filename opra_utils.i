@@ -72,6 +72,7 @@ func a_struct2vec(a)
 {
   v = [];
   grow,v,a.pupd;
+  grow,v,a.cobs;
   grow,v,a.kernd;
   grow,v,a.stfmaskd;
   grow,v,a.defoc_scaling;
@@ -93,6 +94,7 @@ func a_vec2struct(v,opp)
 {
   a = opra_a_struct();
   a.pupd          = v(1); v = v(2:);
+  a.cobs          = v(1); v = v(2:);
   a.kernd         = v(1:3); v = v(4:);
   a.stfmaskd      = v(1); v = v(2:);
   a.defoc_scaling = v(1); v = v(2:);
@@ -214,6 +216,14 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       } else {
         pli,psf,(i-1),1,(i-1)+1,2;
         plt,"Model",(i-1)+0.5,2,tosys=2,height=6,justify="CT",color="white";
+				// cw = current_window();
+				// window,2,wait=1;
+				// 	      motf = array(complex,dimsof(op(1,n).otf(,,1)));
+				// 	      motf.re = roll(op(i,n).otf(,,1));
+				// 	      motf.im = -roll(op(i,n).otf(,,2));
+				// 	      mpsf = roll((fft(otf2,-1)).re)/opp.otf_sdim^2.;
+				//         pli,op(i,n).psf_data-psf,(i-1),2,(i-1)+1,3;
+        // plt,"Data-Model",(i-1)+0.5,3,tosys=2,height=6,justify="CT",color="white";
       }
     }
     plt,"Images",0.145,0.882,tosys=0,height=10;
@@ -233,16 +243,21 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
     pha = opp.phase(,,n) * 0.;
     if (has_yao) {
       pha = opp.phase(,,n);
-      // remove TT (only on first DM):
-      c = float(*(*a.coefs)(1));
-      c(4:) = 0;
-      tt = compDmShape(1,&c);
-      pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
-    } else {
-	  for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
-    }
-    iminmax = minmax(pha(where(opp.pupi)));
-    phase_rms = pha(where(opp.pupi))(rms);
+			// remove TT (only on first DM):
+			c = float(*(*a.coefs)(1));
+			c(4:) = 0;
+			tt = compDmShape(1,&c);
+			pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
+		} else {
+			for (i=4;i<=nmodes;i++) {
+				// we have to skip focus !
+				// if (((opp.modes_type=="zernike")||(opp.modes_type=="kl"))&&(i==4)) continue;
+				// if ((opp.modes_type=="dh")&&(i==5)) continue;
+				pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
+			}
+		}
+		iminmax = minmax(pha(where(opp.pupi)));
+		phase_rms = pha(where(opp.pupi))(rms);
     strehl = exp(-phase_rms^2.);
     dim = opp.otf_dim;
     tmp = ((pha-iminmax(1))*opp.pupi)(dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
@@ -262,8 +277,10 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       plt,"Distance to data",0.471,0.425,tosys=0,orient=1,height=8,justify="CA";
       plt,"Iteration",0.58,0.357,tosys=0,height=8,justify="CA";
     }
-    ytop = 0.425; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
+    ytop = 0.42; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
     txt = swrite(format="Support diameter [pixels]          : %.2f",a.pupd);
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
+    txt = swrite(format="cobs [fraction of pupil diameter]  : %.3f",opp.cobs+cobs_multiplier*abs(a.cobs));
     plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
     txt = swrite(format="Gaussian Kernel FWHM [pixels]      : %.2f %.2f %+.1f",abs(a.kernd(1))*2.35,abs(a.kernd(2))*2.35,a.kernd(3)*1e3);
     plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";

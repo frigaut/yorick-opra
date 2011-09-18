@@ -14,3 +14,4 @@ From a training session w/ Julian Christou and Chad Trujillo:
  - clean up input parameters (started)
  - why internsity is not centered on 1.0? because of clipping in data. 
    option to clip display from zero?
+- include effect of pixel averaging (noticeable if fwhm close to 2).

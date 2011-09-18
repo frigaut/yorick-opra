@@ -50,6 +50,8 @@ struct oprapar_struct
   float   pupd;                      // pupil diameter
   float   cobs;                      // telescope central obstruction (fraction of diameter)
   float   lambda;                    // image wavelength
+	float   kernd(3);                  // kernel parameters (Xfwhm, Yfwhm, Pos angle)
+	float   psize;                     // pixel size
   long    ncoef_per_dm(ndm);         // vector that contains # of coefs (actuator/modes) per dm
   float   phase(otf_dim,otf_dim,npos); // modelled phase map
   float   pupi(otf_dim,otf_dim);     // pupil (integer, i.e. 0/1)
@@ -66,6 +68,7 @@ struct oprapar_struct
 struct opra_a_struct   // holds variables passed to opra_foo()
 {
   float   pupd;
+	float   cobs;
   float   kernd(3);
   float   stfmaskd;
   float   defoc_scaling;
