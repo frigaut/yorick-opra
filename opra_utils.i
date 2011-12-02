@@ -21,6 +21,7 @@ local opra_utils;
  * SEE ALSO:
  */
 
+cobs_multiplier = 10.;
 
 
 func get_mtf(psf,dim,zero=)
@@ -325,14 +326,14 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       write,"";
     }
   }
-	
-	units = "mrd"; 
+
+	units = "mrd";
 	conv = 1.;
 	if (want_nanometer) {
 		units = "nm";
 		conv = opp.lambda*1e9*1e-3/(2.*pi);
 	}
-	
+
   if (has_yao) {
     nmo = max(nmodes);
     write,format="%s","DM                      : ";

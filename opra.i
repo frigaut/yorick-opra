@@ -23,19 +23,18 @@ require,"opra_libdh.i";        // for make_diskharmonic
 require,"opra_utils.i";   // plots, util functions.
 
 nmodes_max4printout = 30;
-cobs_multiplier = 10.;
 
 OPRA_VERSION = "1.9.9";
 
-func opra(images, defocs, lambda, pixsize, teldiam, 
+func opra(images, defocs, lambda, pixsize, teldiam,
           nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, kernd=,
           fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, fix_cobs=,
 					first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, nm=)
-/* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam, 
-                 nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, 
-                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, 
+/* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam,
+                 nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=,
+                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=,
                  winnum=, dpi=, pal=, gui=, svipc=, nm=)
-   images:         Image data cube (data). These must be at least Shannon (Nyquist) 
+   images:         Image data cube (data). These must be at least Shannon (Nyquist)
                    sampled, ideally 2x Shannon or more.
    defocs:         Vector of estimate of defocus for each image (in radians)
    lambda:         Image wavelength (meter)
@@ -269,7 +268,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   }
 
 	if (use_mode=="yao") { // Can't do progressive with yao (see comment below)
-  	if (!(allof(dm.type=="dh")||allof(dm.type=="kl")||allof(dm.type="zernikes"))) {	
+  	if (!(allof(dm.type=="dh")||allof(dm.type=="kl")||allof(dm.type=="zernikes"))) {
 	  	nmodesv = [opp.ncoefs,opp.ncoefs];
 		  // above: has to be, we don't know "modes" are modal (could be zonal)
 		  nitv = [6,niter];
@@ -386,7 +385,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
 	opp.cobs = opp.cobs+cobs_multiplier*abs(a.cobs);
 	opp.psize *= 1.+atan(a.psize)*0.2;
 	opp.pupd = opp.pupd+atan(a.pupd)*5;
-	
+
   write,format="Elapsed time = %f sec\n",tac();
   return opp;
 }
@@ -482,7 +481,7 @@ func opra_foo(x,b)
 				               xc=opp.otf_dim/2*nn+offset,                \
 				               yc=opp.otf_dim/2*nn+offset,                \
 				               cobs=opp.cobs+cobs_multiplier*a.cobs);
-			opp.pupr = bin2d(tmp,nn);			
+			opp.pupr = bin2d(tmp,nn);
       // opp.pupr = opp.pupi;
       // opp.pupi = opp.pupr;
       prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
