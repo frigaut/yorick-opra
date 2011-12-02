@@ -19,62 +19,71 @@
  */
 
 
-struct opra_struct     // struct to describe each input plane
+struct opra_data_struct     // struct to describe each input plane
 // most member xfered to fixed size arrays for svipc data xfer
 // nim, npos, im_dim and otf_dim need to be defined before defining
 // this structures (including this file).
 {
-  float  psf_data(im_dim,im_dim);   // 2D image (data)
-  float  otf_data(otf_sdim,otf_sdim,2); // 2D OTF (complex, re & im)
-  float  psf(im_dim,im_dim);        // model PSF
-  float  otf(otf_sdim,otf_sdim,2);      // 2D model OTF (complex, re & im)
-  float  delta_tt(2);     // tip-tilt coefs for this image
-  float  delta_foc;       // defocus coef for this image
-  float  amp;             // amplitude correction for this image
-  float  noise;           // noise in data (just for cosmetic, not used in minim.)
+  pointer  psf;           // pointer to PSF data cube (user data)
+  pointer  otf;           // Pointer to OTF of user images
+  pointer  psf_model;     // model PSF
+  pointer  otf_model;     // 2D model OTF (complex, re & im)
+  pointer  position;      // position for all psf in datacube
+  pointer  focus;         // defocus coef for all psf in datacube
+  pointer  amp;           // amplitude correction for all psf in datacube
+  pointer  noise;         // noise in data for all psf in datacube
+                          // (just for cosmetic, not used in minim.)
 };
 
-struct oprapar_struct
-// one structure to hold all important parameters and results.
-// most member xfered to fixed size arrays for svipc data xfer
-// ndm, otf_dim and otf_sdim need to be defined before defining
-// this structures (including this file).
+struct opra_fit_struct
+// fit structure.
+// all members booleans
+// 0 means don't fit
+// 1 means fit
+// pointer members point to int vector of 0s and 1s
 {
-  long    nim;                       // number of images
-  long    npos;                      // number of positions
-  long    ndm;                       // number of DM (for yao mode)
-  long    ncoefs;                    // total number of coefs
-  long    im_dim;                    // images size
-  long    otf_dim;                   // OTF size for OTF calculations
-  long    otf_sdim;                  // OTF size of returned OTF
-  float   pupd;                      // pupil diameter
-  float   cobs;                      // telescope central obstruction (fraction of diameter)
-  float   lambda;                    // image wavelength
-	float   kernd(3);                  // kernel parameters (Xfwhm, Yfwhm, Pos angle)
-	float   psize;                     // pixel size
-  long    ncoef_per_dm(ndm);         // vector that contains # of coefs (actuator/modes) per dm
-  float   phase(otf_dim,otf_dim,npos); // modelled phase map
-  float   pupi(otf_dim,otf_dim);     // pupil (integer, i.e. 0/1)
-  float   pupr(otf_dim,otf_dim);     // pupil (real = apodized)
-  float   stfmask(otf_sdim,otf_sdim);// source TF mask array
-  float   kernel(otf_sdim,otf_sdim); // Blur kernel array
-  pointer coefs;                     // modes coefficients
-  pointer modes;                     // mode map data cube
-  long    winnum;                    // first window # in serie
-  string  modes_type;                // type of modes ("kl", "zernikes", "dh" or "yao")
-  string  action;                    // string for plots, current status/action
-};
-
-struct opra_a_struct   // holds variables passed to opra_foo()
-{
-  float   pupd;
-	float   cobs;
-  float   kernd(3);
-  float   stfmaskd;
-  float   defoc_scaling;
-  float   psize;
-  pointer diff_tt;
-  pointer amps;
-  pointer coefs;
+  pointer im;       // [nim elements] Use image in fit?
+  pointer modes;    // [nmodes elements] Use mode in fit?
+  pointer position; // [nim elements] fit position?
+  int amp;          // fit image amplitude?
+  int psize;        // fit pixel size?
+  int kernel;       // fit gaussian kernel?
+  int defocus;      // fit defocus scaling factor? (global scaling not each focus value)
+  int cobs;         // fit central obstruction?
 }
+
+struct opras
+// one structure to hold all important parameters and results.
+{
+  long    nmodes;            // Number of modes
+  string  modes_type;        // type of modes ("kl", "zernikes", "dh" or "yao")
+  float   teldiam;           // telescope diameter [m]
+  float   cobs;              // telescope central obstruction [fraction of diameter]
+  float   lambda;            // image wavelength [m]
+  float   psize;             // pixel size [arcsec]
+  float   kernd(3);          // kernel parameters (Xfwhm, Yfwhm, Pos angle)
+  long    winnum;            // window # (or first one in serie for tomo mode)
+  long    dpi                // window dpi for displays
+  string  action;            // string for plots, current status/action
+  long    ndm;               // number of DM (for yao mode)
+  long    ncoef_per_dm(ndm); // vector that contains # of coefs (actuator/modes) per dm
+  pointer phase;             // modelled phase map [rd]
+  pointer coefs;             // modes coefficients [rd]
+  opra_data_struct data;     // data
+  opra_fit_struct  fit;      // fit variables (bool)
+
+  // internal parameters
+  long    _iter              // iteration from start
+  float   _pupd;             // internal, pupil diameter
+  long    _nim;              // internal, number of images
+  long    _npos;             // number of positions for tomographic mode
+  long    _dim;           // internal, images size
+  long    _otf_sdim;         // internal, OTF size of returned OTF
+  pointer _stfmask;          // internal, source TF mask array
+  pointer _kernel ;          // internal, blur kernel array
+  pointer _pupi;             // internal, pupil (integer, i.e. 0/1)
+  pointer _pupr;             // internal, pupil (real = apodized)
+  pointer _modes;            // internal, mode map data cube
+};
+
 

@@ -13,7 +13,12 @@
  * General Public License for more details (to receive a  copy  of  the GNU
  * General Public License, write to the Free Software Foundation, Inc., 675
  * Mass Ave, Cambridge, MA 02139, USA).
- */
+
+ * Plan for version 2:
+ * make it modular ! That is:
+ * - one call to initialize variables
+ * - then calls to add iterations
+*/
 
 //require,"yao.i";          // for zernikes
 require,"opra_lmfit.i";        // for ...lmfit, nodep
@@ -24,211 +29,121 @@ require,"opra_utils.i";   // plots, util functions.
 
 nmodes_max4printout = 30;
 
-OPRA_VERSION = "1.9.9";
+OPRA_VERSION = "2.0.0";
 
-func opra(images, defocs, lambda, pixsize, teldiam,
-          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, kernd=,
-          fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, fix_cobs=,
-					first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, nm=)
-/* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam,
-                 nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=,
-                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=,
-                 winnum=, dpi=, pal=, gui=, svipc=, nm=)
-   images:         Image data cube (data). These must be at least Shannon (Nyquist)
-                   sampled, ideally 2x Shannon or more.
-   defocs:         Vector of estimate of defocus for each image (in radians)
-   lambda:         Image wavelength (meter)
-   pixsize:        Image pixel size (arcsec)
-   teldiam:        Telescope (optics) diameter (meter)
-   nmodes=         Number of modes to include in the phase estimate (default 120)
-   use_mode=       Can be set to 'zernike' or 'dh' of 'kl' modes (default DH).
-                   This can also be set to 'yao' for use of yao machinery (kind of
-                   advanced mode and poorly documented as of Sep2011)
-   cobs=           Optics central obstruction, in unit of optics outer diameter
-                   (i.e. 0.1 would mean the central obstruction diameter is
-                   10% of the optics/pupil/telescope outer diameter). Default 0.
-   noise=          rms of noise in input images (one number, it is assumed the noise
-                   is the same in all images). This is just used for display, not
-                   used in the phase estimation. Default 0.
-   pupd=           Force pupil diameter in pixels
-   progressive=    Introduce modes slower than regular version (more steps)
-   niter=          Set maximum number of iteration
-   fix_amp=        1 if image intensity should not be a free parameter
-   fix_pix=        1 if pixel size should not be a free parameter
-   fix_kern=       1 if gaussian kernel size should not be a free parameter
-   fix_defoc=      1 if defoc from image to image should not be a free parameter
-                   Note that only the global multiplier to the provided defoc
-                   values is ever adjusted.
-   fix_cobs=       1 if cobs should not be a free parameter
-   fix_diff_tt=    1 if differential TT between images shoud not be a free parameter
-   first_nofit_astig= 1 if astig should not belong to the initial run
-   winnum=         Output graphical window number
-   dpi=            Output graphical window dpi
-   pal=            Output graphical window palette
-   svipc=          Force svipc on (1) or off (0)
-   nm=             Printout mode coefficients in nm instead of mrd.
+/* example of opra calling:
+// read data and put them in data cube "psfs"
+// they have to all be of the same size
 
-   Note: lambda, pixsize and teldiam are only used to get a starting value
-   for the pupil diameter (in pixels). Lambda is also used to convert modes
-   coefficients from radians to nm if requested (nm=1).
+// Create structure
+op = opras();
 
-   The input images should be prepared as follow:
-     - Background must be subtracted (not super critical but helps)
-     - Images must be approximately centered
-     - Flux of all images should be approximately the same
-     - Dimension of all images *have* to be the same.
-     - It is suggested to threshold (clip(im,0.,)).
+// fill basic paramaters
+op.modes  = "kl";
+op.nmodes = 45;
+op.lambda = 1.65e-6;
+op.psize  = 0.02;
 
-   SEE ALSO: opra_foo
- */
+// fill data:
+op.data.psf = &psfs;
+op.data.focus = &[0.,0.5,1.]);
+
+// choose what you want to fit:
+// all scalar parameter default is 0
+// all pointer parameters (im and modes) default is 1
+// say first we want to fit only a reduced number of things
+// the ones deemed the most important:
+op.fit.amp = 1;
+op.fit.modes = &array(0,op.nmodes);
+(*op.fit.modes)(3:11) = 1;
+
+// call opra
+op = opra(op,2);
+
+// display results:
+opra_disp,op;
+
+// then for instance fit more things:
+(*op.fit.modes)() = 1;
+op = opra(op,2);
+// display results:
+opra_disp,op;
+
+*/
+
+func opra(data,niter)
 {
-  extern aold, opra_iter, lmfititer;
-  extern itvec,distvec;
-  extern opp,op;
-  extern has_svipc;
-  extern want_nanometer;
 
-  if (svipc!=[]) has_svipc=svipc; \
-  else if ((find_in_path("svipc.i")!=[])&&(gui)) has_svipc=1;
-  if (find_in_path("svipc.i")==[]) has_svipc=0;
-
-  //#################################
-  // Initialize some general variables
-  //#################################
-  if (!nmodes)    nmodes = 120;
-  if (winnum==[]) winnum = 0;
-  if (!noise)     noise = 0.;
-  if (!dpi)       dpi = 130;
-  if (nm)         want_nanometer=1;
-	if (progressive!=0) progressive=1; // default to progressive
-  itvec = distvec = [];
-  opra_iter = lmfititer = 0;
-  passn = 1;
-  tic;
-
-  //#################################
-  // fill structures and prepare data
-  //#################################
   // we need images to be 4-dimensions:
   // im_dimx x imdimy x number of defocused images x number of positions
-  if (dimsof(images)(1)==3) images = images(,,,-);
-  if (dimsof(images)(2)!=dimsof(images)(3)) error,"images should be square";
+  if (dimsof(*op.data.psf)(1)==3) *op.data.psf = (*op.data.psf)(,,,-);
+  if (dimsof(*op.data.psf)(2)!=dimsof(*op.data.psf)(3)) \
+    error,"PSF images should be square";
 
   // Normalize so that regularization and stop criteria are
   // independent of the data:
-  images = images/sum(images(*));
+  *op.data.psf = *op.data.psf/sum((*op.data.psf)(*));
 
   // define parameters for structures
-  if (use_mode=="yao") {
+  if (op.modes_type=="yao") {
     if (sim==[]) error,"aoread() not done?";
     // ndm has been defined by the call to aoread()
     ndm = numberof(dm);
   } else ndm = 1;
 
-  im_dim   = dimsof(images)(2);
+  if (!op._im_dim) {
+    op._dim = dimsof(*op.data.psf)(2);
+  } else if (op._im_dim!=dimsof(*op.data.psf)(2)) {
+    error,"You changed the psf dimension. Can't do that";
+  }
 
-  // fwhm_estimate is used to compute a starting value for pupil
-  // diameter (pupd, in pixels)
-  fwhm_estimate = lambda/teldiam/4.848e-6/pixsize;
-  pupdiam = (im_dim/2.)*(2./fwhm_estimate);
-
-  if (!pupd) {
+  if (!op._pupd) {
+    // fwhm_estimate is used to compute a starting value for pupil
+    // diameter (pupd, in pixels)
+    fwhm_estimate = op.lambda/op.teldiam/4.848e-6/op.psize;
+    pupdiam = (op._im_dim/2.)*(2./fwhm_estimate);
     psize_corr = round(pupdiam)/pupdiam;
-    pupd = psize_corr*pupdiam;
-  } else psize_corr = 1.;
-
-  otf_sdim = long(2*pupd*1.02)/2*2;
-  //  otf_dim  = long(2^ceil(log(otf_sdim)/log(2)));
-	otf_dim  = dimsof(images)(2);
-  nim      = dimsof(images)(4);  // number of input images
-  npos     = dimsof(images)(5);  // number of input positions
-
-  require,"opra_structs.i"; // structures declarations
-  opp = oprapar_struct();
-  op  = array(opra_struct,[2,nim,npos]);
-
-  opp.pupd     = pupd;
-  opp.ndm      = ndm;
-  opp.nim      = nim;
-  opp.npos     = npos;
-	opp.psize    = pixsize;
-  opp.otf_dim  = otf_dim;
-  opp.otf_sdim = otf_sdim;
-  opp.im_dim   = im_dim;
-  opp.winnum   = winnum;
-  opp.cobs     = (cobs?cobs:0.);
-  opp.lambda   = lambda;
-	if (kernd!=[]) opp.kernd = kernd;
-
-  // type of modes used to build the  phase
-  if (strpart(use_mode,1:2) == "ze") opp.modes_type = "zernike";
-  else if (use_mode == "kl")  opp.modes_type = "kl";
-  else if (use_mode == "yao") opp.modes_type = "yao";
-  else if (use_mode == "dh")  opp.modes_type = "dh";
-  else error,"use_mode not defined";
+    op._pupd = psize_corr*pupdiam;
+  }
 
 
-  if (use_mode=="yao") {
-    sim.pupildiam = opp.pupd;
+  op._otf_sdim = long(2*op._pupd*1.02)/2*2;
+  op._nim = dimsof(images)(4);  // number of input images
+  op._npos = dimsof(images)(5);  // number of input positions
+
+
+
+  if (op.modes_type=="yao") {
+    sim.pupildiam = op._pupd;
     aoinit,disp=0,clean=1;
-    opp.ncoefs = sum(dm._nact);
-    opp.ncoef_per_dm = dm._nact;
-    opp.ndm = ndm;
+    op.nmodes = sum(dm._nact);
+    op.ncoef_per_dm = dm._nact;
+    op.ndm = ndm;
     dpi2 = long(dpi*ndm/3.);
   } else {
-    require,"yao.i";
-    opp.ncoefs = nmodes;
-    opp.ncoef_per_dm = [opp.ncoefs];
+    require,"yao.i"; // why?
+    op.ncoef_per_dm = [op.nmodes];
   }
 
-  // svipc and spawn GUI:
-  if (has_svipc) {
-    require,"opra_svipc.i";
-    lmfititer_pass=lmfit_itmax=lmfititer=0;
-    status = opra_svipc_init(dpi);
-    if (wfs==[]) wfs=dm=[0];
-    write_yao_struct_to_shm,wfs,dm;
-    write_opra_struct_to_shm,fresh_a(opp),op,opp;
-  }
-
-  //##########################################
-  // create graphic windows if not in gui mode
-  //##########################################
-  if (!has_svipc) {  // if has_svipc then display handled by fork()
-    write,format="%s\n","Creating graphical windows";
-    for (n=1;n<=opp.npos;n++) {
-      winn = winnum+n-1;
-      if (window_exists(winn)) winkill,winn;
-      window,winn,wait=1,style="opra.gs",dpi=dpi,width=0,height=0;
-      if (pal) palette,pal;
-      for (i=1;i<=3;i++) { plsys,i; limits,square=1; }
-    }
-    if (use_mode=="yao") {
-      if (window_exists(winnum+opp.npos)) winkill,winnum+opp.npos;
-      window,winnum+opp.npos,style="nobox.gs",width=long(6.*dpi2/ndm),height=6*dpi2,dpi=dpi2,wait=1;
-    }
-    window,winnum;
-  } else {
-    write,format="%s\n","Waiting for semaphore 0 from child";
-    sem_take,semkey,0; // wait for graphic window to be realized.
-  }
 
   // normalize
-  for (i=1;i<=opp.npos;i++) images(,,,i) = images(,,,i)/sum(images(,,1,i));
-  center = opp.otf_sdim/2+1;
-  data = [];
+  write,format="%s\n","Normalizing PSFs";
+  for (i=1;i<=op._npos;i++) \
+    (*op.data.psf)(,,,i) = (*op.data.psf)(,,,i)/sum((*op.data.psf)(,,1,i));
+  center = op._otf_sdim/2+1;
 
-  for (n=1;n<=opp.npos;n++) {
-    for (i=1;i<=opp.nim;i++) {
-      op(i,n).psf_data  = images(,,i,n);
-      op(i,n).otf_data  = get_mtf(images(,,i,n),opp.otf_sdim);
-      op(i,n).otf_data(center,center,)  = 0;
-      // get rid of (0,0) frequency information
-      // grow,data,(*op(i,n).otf_data)(,,,-);
-      op(i,n).delta_foc = defocs(i);
-      op(i,n).noise     = noise;
+  // Compute OTFs
+  if (op.data.otf==[]) {
+    write,format="%s\n","Computing OTFs";
+    op.data.otf = &((*op.data.psf)(1:op._otf_sdim,1:op._otf_sdim,,));
+    for (n=1;n<=op._npos;n++) {
+      for (i=1;i<=op._nim;i++) {
+        (*op.data.otf)(,,i,n)  = get_mtf((*op.data.psf)(,,i,n),op._otf_sdim);
+      }
     }
+    (*op.data.otf)(center,center,,) = 0;
   }
+
   disk = dist(opp.otf_sdim)<(opp.otf_sdim/2.+1);
   xy = indices(opp.otf_sdim);
   extern wotf;
