@@ -24,17 +24,17 @@ require,"opra_utils.i";   // plots, util functions.
 
 nmodes_max4printout = 30;
 
-OPRA_VERSION = "1.8";
+OPRA_VERSION = "1.9.9";
 
-func opra(images, defocs, lambda, pixsize, teldiam, 
-          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, 
-          fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, 
-          winnum=, dpi=, pal=, gui=, svipc=, nm=)
-/* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam, 
-                 nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, 
-                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=, 
+func opra(images, defocs, lambda, pixsize, teldiam,
+          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, kernd=,
+          fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, fix_cobs=,
+          first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, nm=)
+/* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam,
+                 nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=,
+                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=,
                  winnum=, dpi=, pal=, gui=, svipc=, nm=)
-   images:         Image data cube (data). These must be at least Shannon (Nyquist) 
+   images:         Image data cube (data). These must be at least Shannon (Nyquist)
                    sampled, ideally 2x Shannon or more.
    defocs:         Vector of estimate of defocus for each image (in radians)
    lambda:         Image wavelength (meter)
@@ -59,6 +59,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
    fix_defoc=      1 if defoc from image to image should not be a free parameter
                    Note that only the global multiplier to the provided defoc
                    values is ever adjusted.
+   fix_cobs=       1 if cobs should not be a free parameter
    fix_diff_tt=    1 if differential TT between images shoud not be a free parameter
    first_nofit_astig= 1 if astig should not belong to the initial run
    winnum=         Output graphical window number
@@ -99,6 +100,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   if (!noise)     noise = 0.;
   if (!dpi)       dpi = 130;
   if (nm)         want_nanometer=1;
+  if (progressive!=0) progressive=1; // default to progressive
   itvec = distvec = [];
   opra_iter = lmfititer = 0;
   passn = 1;
@@ -136,7 +138,8 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   } else psize_corr = 1.;
 
   otf_sdim = long(2*pupd*1.02)/2*2;
-  otf_dim  = long(2^ceil(log(otf_sdim)/log(2)));
+  //  otf_dim  = long(2^ceil(log(otf_sdim)/log(2)));
+  otf_dim  = dimsof(images)(2);
   nim      = dimsof(images)(4);  // number of input images
   npos     = dimsof(images)(5);  // number of input positions
 
@@ -148,12 +151,14 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   opp.ndm      = ndm;
   opp.nim      = nim;
   opp.npos     = npos;
+  opp.psize    = pixsize;
   opp.otf_dim  = otf_dim;
   opp.otf_sdim = otf_sdim;
   opp.im_dim   = im_dim;
   opp.winnum   = winnum;
   opp.cobs     = (cobs?cobs:0.);
   opp.lambda   = lambda;
+  if (kernd!=[]) opp.kernd = kernd;
 
   // type of modes used to build the  phase
   if (strpart(use_mode,1:2) == "ze") opp.modes_type = "zernike";
@@ -246,7 +251,9 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   if (progressive) {
     // set up progression in # modes (geometric, factor 2):
     nmodesv = nm = opp.ncoefs;
+    if (use_mode=="yao") nmodesv = nm = max(opp.ncoef_per_dm)
     while ((nm=nm/2)>15) grow,nmodesv,nm;
+    if (is_scalar(nmodesv)) nmodesv=[nmodesv];
     nmodesv = _(6,nmodesv(::-1));
     if (niter) {
       nitv    = array(niter,numberof(nmodesv));// 10iteration max (?)
@@ -258,13 +265,15 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   } else {
     nmodesv = _(6,opp.ncoefs);
     nitv    = array(10,numberof(nmodesv));// 10iteration max (?)
-    nitv(2) = 30;
+    if (niter) nitv(2) = niter; else nitv(2) = 30;
   }
 
   if (use_mode=="yao") { // Can't do progressive with yao (see comment below)
-    nmodesv = [opp.ncoefs,opp.ncoefs];
-    // above: has to be, we don't know "modes" are modal (could be zonal)
-    nitv = [6,niter];
+    if (!(allof(dm.type=="dh")||allof(dm.type=="kl")||allof(dm.type=="zernikes"))) {
+      nmodesv = [opp.ncoefs,opp.ncoefs];
+      // above: has to be, we don't know "modes" are modal (could be zonal)
+      nitv = [6,niter];
+    }
   }
 
   //#################################
@@ -273,7 +282,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   // See the parameters descriptions in DOCUMENT section of opra_foo.
   // initialize "a" (the coefficients to find)
   a = fresh_a(opp);
-  a.kernd    = [0.,0,0];
+  a.kernd    = opp.kernd;
   a.stfmaskd = -100.;
   opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                       passn++,nmodesv(1));
@@ -281,12 +290,14 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   // filter some parameters. Use fit keyword of lmfit.
   fit = fresh_a(opp,val=1);
   fit.pupd     = 0;
+  fit.cobs     = 0;
   fit.kernd    = [1,1,1]*0;
   fit.stfmaskd = 0;
   if (fix_amp)   *fit.amps = 0;
   if (fix_pix)   fit.psize = 0;
   if (fix_kern)  fit.kernd = [0,0,0];
   if (fix_defoc) fit.defoc_scaling = 0;
+  if (fix_cobs)  fit.cobs = 0;
   // We want to peg first in-focus image:
   (*fit.diff_tt)(,1,1) = 0;
   if (fix_diff_tt) (*fit.diff_tt) = 0;
@@ -308,9 +319,9 @@ func opra(images, defocs, lambda, pixsize, teldiam,
       }
       // filter TT on altitude DMs:
       if (nm>1) (*(*fit.coefs)(nm))(1:3) = 0;
-			(*(*fit.coefs)(nm))(nmodesv(1)+1:) = 0;
+      if (nmodesv(1)<opp.ncoefs) (*(*fit.coefs)(nm))(nmodesv(1)+1:) = 0;
     }
-	} else {
+  } else {
     (*(*fit.coefs)(1))(1) = 0; // filter piston
     // filter focus:
     if (use_mode=="dh") (*(*fit.coefs)(1))(5) = 0; // for DH
@@ -320,7 +331,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
       if (use_mode=="dh") (*(*fit.coefs)(1))([4,6]) = 0; // for DH
       else (*(*fit.coefs)(1))([5,6]) = 0; // for zernike & KL
     }
-		(*(*fit.coefs)(1))(nmodesv(1)+1:) = 0;
+    if (nmodesv(1)<opp.ncoefs) (*(*fit.coefs)(1))(nmodesv(1)+1:) = 0;
   }
 
   // get reference
@@ -347,6 +358,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
     if (fix_pix)   fit.psize = 0;
     if (fix_kern)  fit.kernd = [0,0,0];
     if (fix_defoc) fit.defoc_scaling = 0;
+    if (fix_cobs)  fit.cobs = 0;
     (*fit.diff_tt)(,1,1) = 0;
     if (fix_diff_tt) (*fit.diff_tt) = 0;
 
@@ -357,7 +369,10 @@ func opra(images, defocs, lambda, pixsize, teldiam,
       (*(*fit.coefs)(nm))(1) = 0; // filter Piston on all.
       // filter TT and quadratic on altitude DMs:
       if (nm>1) (*(*fit.coefs)(nm))(1:6) = 0;
-			if (n<numberof(nmodesv)) (*(*fit.coefs)(nm))(nmodesv(n)+1:) = 0;
+      if (n<numberof(nmodesv)) {
+        im = nmodesv(n)+1;
+        if (im<opp.ncoef_per_dm(nm)) (*(*fit.coefs)(nm))(im:) = 0;
+      }
     }
 
     // call lmfit
@@ -366,10 +381,22 @@ func opra(images, defocs, lambda, pixsize, teldiam,
     if (stop_all) goto fin;
   }
 
-  fin:
-  write,format="Elapsed time = %f sec\n",tac();
+  // FIXME FIXME, just for test
+  write,"FIXME FIXME FIXME !!";
+  fit.psize=1;
+  res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
+                   tol=1e-14,eps=0.01,itmax=5,aregul=0.);
 
+  fin:
+
+  // fill back opp structure:
   opp.coefs=&(*a.coefs);
+  opp.kernd = a.kernd; opp.kernd(1:2) *= 2.35; opp.kernd(3) *= 1e3;
+  opp.cobs = opp.cobs+cobs_multiplier*abs(a.cobs);
+  opp.psize *= 1.+atan(a.psize)*0.2;
+  opp.pupd = opp.pupd+atan(a.pupd)*5;
+
+  write,format="Elapsed time = %f sec\n",tac();
   return opp;
 }
 
@@ -398,6 +425,7 @@ func opra_foo(x,b)
   if (aold==[]) {
     aold=opra_a_struct();
     aold.pupd = -9999;
+    aold.cobs = -9999;
     aold.kernd = [-9999,-9999,1];
   }
   if (sdimold==[]) sdimold=0;
@@ -426,7 +454,7 @@ func opra_foo(x,b)
   //It could be good to bound properly the parameters.
   //But is that possible with lmfit ?
 
-  if (aold.pupd!=a.pupd) {
+  if ((aold.pupd!=a.pupd)||(aold.cobs!=a.cobs)) {
     // pupd has changed, need to recompute pupils and possibly modes.
     // Why possibly? kl are computed on even int dim, so if pupd has not
     // gone above the next even int value, no need to recompute (this is
@@ -444,19 +472,28 @@ func opra_foo(x,b)
       opp.pupr = pupil;
       prepzernike,sim._size,sim.pupildiam,sim._cent,sim._cent;
     } else {
-      write,"Generating modes";
-      opp.modes = &( opra_gen_modes(opp.otf_dim,a.pupd,nmodes,\
-                                    mode_type=opp.modes_type));
+      if (aold.pupd!=a.pupd) {
+        write,"Generating modes";
+        opp.modes = &( opra_gen_modes(opp.otf_dim,a.pupd,nmodes,       \
+                                      mode_type=opp.modes_type));
+      }
       opp.pupi = make_pupil(opp.otf_dim,a.pupd,                        \
                             xc=opp.otf_dim/2+offset,                   \
                             yc=opp.otf_dim/2+offset,                   \
-                            cobs=opp.cobs);
+                            cobs=opp.cobs+cobs_multiplier*abs(a.cobs));
 
       opp.pupr = make_pupil(opp.otf_dim,a.pupd,real=1,                 \
                             xc=opp.otf_dim/2+offset,                   \
                             yc=opp.otf_dim/2+offset,                   \
-                            cobs=opp.cobs);
-      //opp.pupr = opp.pupi;
+                            cobs=opp.cobs+cobs_multiplier*abs(a.cobs));
+      nn = 4;
+      tmp = make_pupil(opp.otf_dim*nn,a.pupd*nn,                  \
+                       xc=opp.otf_dim/2*nn+offset,                \
+                       yc=opp.otf_dim/2*nn+offset,                \
+                       cobs=opp.cobs+cobs_multiplier*a.cobs);
+      opp.pupr = bin2d(tmp,nn);
+      // opp.pupr = opp.pupi;
+      // opp.pupi = opp.pupr;
       prepzernike,opp.otf_dim,a.pupd,opp.otf_dim/2+offset,opp.otf_dim/2+offset;
       // above: needed anyway for added defocus
       // FIXME: need to modify xc/yc as using kl???
@@ -541,13 +578,9 @@ func opra_foo(x,b)
         tt = (*a.diff_tt)(1,i,n) * z2ext +   \
              (*a.diff_tt)(2,i,n) * z3ext;
       }
-      // compute complex wavefront
-      // phi     = array(complex,[2,opp.otf_dim,opp.otf_dim]);
+      // compute phase
       pha     = opp.phase(,,n) + tt + defoc;
-      // phi.re  = opp.pupr * cos(pha);
-      // phi.im  = opp.pupr * sin(pha);
       // compute PSF
-      // psf     = roll(abs(fft(phi,1))^2.);
       psf = calc_psf_fast(opp.pupr,pha);
       // normalize
       psf     = psf/sum(psf) * abs((*a.amps)(i,n));

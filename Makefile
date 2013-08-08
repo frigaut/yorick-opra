@@ -1,9 +1,9 @@
 # these values filled in by    yorick -batch make.i
-Y_MAKEDIR=/Users/frigaut/yorick-2.2
-Y_EXE=/Users/frigaut/yorick-2.2/bin/yorick
-Y_EXE_PKGS=imutil
-Y_EXE_HOME=/Users/frigaut/yorick-2.2
-Y_EXE_SITE=/Users/frigaut/yorick-2.2
+Y_MAKEDIR=/usr/lib/yorick/2.2
+Y_EXE=/usr/lib/yorick/2.2/bin/yorick
+Y_EXE_PKGS=
+Y_EXE_HOME=/usr/lib/yorick/2.2
+Y_EXE_SITE=/usr/share/yorick/2.2
 Y_HOME_PKG=
 
 #
