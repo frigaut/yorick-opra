@@ -1,4 +1,6 @@
 #!/bin/sh
 mv opra_test1_data.fits opra_test1_data.fits.save
+mv gemini_niri.fits gemini_niri.fits.save
 \rm *.fits *.ps *.res *.ruo *.rco *~ 2> /dev/null
 mv opra_test1_data.fits.save opra_test1_data.fits
+mv gemini_niri.fits.save gemini_niri.fits

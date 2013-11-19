@@ -21,6 +21,7 @@ local opra_utils;
  * SEE ALSO:
  */
 
+cobs_multiplier = 10.;
 
 
 func get_mtf(psf,dim,zero=)
@@ -72,6 +73,7 @@ func a_struct2vec(a)
 {
   v = [];
   grow,v,a.pupd;
+  grow,v,a.cobs;
   grow,v,a.kernd;
   grow,v,a.stfmaskd;
   grow,v,a.defoc_scaling;
@@ -93,7 +95,8 @@ func a_vec2struct(v,opp)
 {
   a = opra_a_struct();
   a.pupd          = v(1); v = v(2:);
-  a.kernd         = v(1); v = v(2:);
+  a.cobs          = v(1); v = v(2:);
+  a.kernd         = v(1:3); v = v(4:);
   a.stfmaskd      = v(1); v = v(2:);
   a.defoc_scaling = v(1); v = v(2:);
   a.psize         = v(1); v = v(2:);
@@ -205,7 +208,7 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       otf2.im = -roll(op(i,n).otf(,,2));
       psf = roll((fft(otf2,-1)).re)/opp.otf_sdim^2.;
       psf = spline2(psf,opp.im_dim,opp.im_dim);
-      psf = psf/sum(psf);
+      // psf = psf/sum(psf);
       psf = psf+gaussdev(dimsof(psf))*op(i,n).noise;
       psf = clip(psf,0.,);
       if (opp.nim<=2) {
@@ -214,9 +217,25 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       } else {
         pli,psf,(i-1),1,(i-1)+1,2;
         plt,"Model",(i-1)+0.5,2,tosys=2,height=6,justify="CT",color="white";
+        // cw = current_window();
+        // window,2,wait=1;
+        //       motf = array(complex,dimsof(op(1,n).otf(,,1)));
+        //       motf.re = roll(op(i,n).otf(,,1));
+        //       motf.im = -roll(op(i,n).otf(,,2));
+        //       mpsf = roll((fft(otf2,-1)).re)/opp.otf_sdim^2.;
+        //        pli,op(i,n).psf_data-psf,(i-1),2,(i-1)+1,3;
+        // plt,"Data-Model",(i-1)+0.5,3,tosys=2,height=6,justify="CT",color="white";
       }
     }
     plt,"Images",0.145,0.882,tosys=0,height=10;
+
+    // compute Strehl from psf image:
+    // still to be done
+    // 1) compute the equivalent of op.otf
+    // 2) reproduce step above to compute psf (sans the noise)
+    // have to compute otf with and without kernel to give
+    // strehl only from aberrations, and with ab + kernel
+
 
     // Model phase
     plsys,3;
@@ -231,8 +250,11 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       tt = compDmShape(1,&c);
       pha(dm(1)._n1:dm(1)._n2,dm(1)._n1:dm(1)._n2) -= tt;
     } else {
-      if (has_svipc) {
-        for (i=4;i<=nmodes;i++) pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
+      for (i=4;i<=nmodes;i++) {
+        // we have to skip focus !
+        // if (((opp.modes_type=="zernike")||(opp.modes_type=="kl"))&&(i==4)) continue;
+        // if ((opp.modes_type=="dh")&&(i==5)) continue;
+        pha += (*(*a.coefs)(1))(i)*(*opp.modes)(,,i);
       }
     }
     iminmax = minmax(pha(where(opp.pupi)));
@@ -256,10 +278,12 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       plt,"Distance to data",0.471,0.425,tosys=0,orient=1,height=8,justify="CA";
       plt,"Iteration",0.58,0.357,tosys=0,height=8,justify="CA";
     }
-    ytop = 0.43; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
+    ytop = 0.42; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
     txt = swrite(format="Support diameter [pixels]          : %.2f",a.pupd);
     plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
-    txt = swrite(format="Gaussian Kernel FWHM [pixels]      : %.2f",abs(a.kernd));
+    txt = swrite(format="cobs [fraction of pupil diameter]  : %.3f",opp.cobs+cobs_multiplier*abs(a.cobs));
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
+    txt = swrite(format="Gaussian Kernel FWHM [pixels]      : %.2f %.2f %+.1f",abs(a.kernd(1))*2.35,abs(a.kernd(2))*2.35,a.kernd(3)*1e3);
     plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
     //  txt = swrite(format="Mask diameter [fixme]              : %.2f",abs(a.stfmaskd));
     //  plt,txt,0.15,ytop-(k++)*ydelta,tosys=0,height=8,font="courier";
@@ -284,10 +308,10 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
   write,format="lmfit Iteration#        : %d\n",lmfititer;
   write,format="Pass through foo2       : %d\n",opraiter;
   write,format="Support diameter        : %.2f\n",a.pupd;
-  write,format="Kernel [pixels]         : %.2f\n",a.kernd;
+  write,format="Kernel [pixels]         : %.2f %.2f %+.1fdeg\n",a.kernd(1)*2.35,a.kernd(2)*2.35,a.kernd(3)*1e3;
   write,format="Mask diameter           : %.2f\n",a.stfmaskd;
-  write,format="foc-defoc defocus       : %.2f\n",a.defoc_scaling;
-  write,format="Pixel size scaling      : %.2f\n",a.psize;
+  write,format="foc-defoc defocus       : %.3f\n",a.defoc_scaling;
+  write,format="Pixel size scaling      : %.3f\n",a.psize;
   if (!opra_brief_printout) {
     for (i=1;i<=opp.npos;i++) {
       write,format="Diff. TT (imset%d) [pix] : Tip: ",i;
@@ -302,22 +326,30 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       write,"";
     }
   }
+
+  units = "mrd";
+  conv = 1.;
+  if (want_nanometer) {
+    units = "nm";
+    conv = opp.lambda*1e9*1e-3/(2.*pi);
+  }
+
   if (has_yao) {
     nmo = max(nmodes);
     write,format="%s","DM                      : ";
     for (nm=1;nm<=ndm;nm++) write,format="%7d  ",nm;
     write,"";
     for (i=2;i<=min(nmo,nmodes_max4printout);i++) {
-      write,format="a(%2d) [mrd]             : ",i;
+      write,format="a(%2d) [%s]             : ",i,units;
       for (nm=1;nm<=ndm;nm++) {
         if (i>nmodes(nm)) write,format="%s","      -  ";
-        else write,format="%+7.0f  ",1000*(*(*a.coefs)(nm))(i);
+        else write,format="%+7.0f  ",conv*1000*(*(*a.coefs)(nm))(i);
       }
       write,"";
     }
   } else {
     for (i=2;i<=min(nmodes,nmodes_max4printout);i++) {
-      write,format="a(%2d)                   : %+7.0f mrd\n",i,1000*az(i);
+      write,format="a(%2d)                   : %+7.0f %s\n",i,conv*1000*az(i),units;
     }
   }
 }

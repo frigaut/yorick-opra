@@ -5,6 +5,7 @@ lambda    = 1.65e-6; // [m]
 pixsize   = 0.020;   // [arcsec]
 allfocs   = [0.,1.52,-1.52]*1.5;
 parfile   = "opra_test3.par";
+nmodesmax = 15;
 
 require,"yao.i";
 aoread,parfile;
@@ -27,6 +28,7 @@ for (i=1;i<=3;i++) {
   for (n=1;n<=5;n++) {
     imcube(,,i,n) *= (imamp(i,n)=(0.75+0.5*random()));
     imcube(,,i,n) = roll(imcube(,,i,n),(imoff(,i,n)=long([-2+4*random(),-2+4*random()])));
+    imcube(,,i,n) = imcube(,,i,n) + 0.8*roll(imcube(,,i,n),[0,1,0,0])+ 0.4*roll(imcube(,,i,n),[1,1,0,0])
   }
 }
 

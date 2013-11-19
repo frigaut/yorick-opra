@@ -2,6 +2,8 @@
 // cd,"/home/frigaut/mcao/myst/yorick";
 // require,"yao_mcao.i";
 // cd,cwd;
+if (findfiles("zeroes.fits")==[]) fits_write,"zeroes.fits",array(0,[2,256,256]),overwrite=1;
+
 require,"yao.i";
 aoread,"opra_test4.par";
 

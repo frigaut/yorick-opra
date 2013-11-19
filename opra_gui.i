@@ -4,20 +4,28 @@
    Authors: F.Rigaut, May 2007
 */
 
-require,"pyk.i";
+require,"opra_pyk.i";
+require,"opra_svipc.i";
+require,"yao.i";
 
-//
+a = get_argv();
+
+fdpi   = long(tonum(a(-2)));
+shmkey = long(tonum(a(-1)));
+semkey = long(tonum(a(0)));
+
+read_yao_struct_from_shm,wfs,dm;
+read_opra_struct_from_shm,a,op,opp,mircube;
+nwfs = numberof(wfs);
+
 // this function is called by python after the main GUI window has been mapped:
-//
-func opra_win_init(xid,..)  // main display window.
+func opra_win_init(xid,..)
 {
   xids = [xid];
   while (nid=next_arg()) grow,xids,nid;
-  xids;
+  // xids;
 
-  //#################################
   // create graphic windows
-  //#################################
   winnum = opp.winnum;
   for (n=1;n<=opp.npos;n++) {
     winn = winnum+n-1;
@@ -40,35 +48,36 @@ func opra_win_init(xid,..)  // main display window.
       redraw;
     }
   }
+  // write,"GUI window realized, giving sem 0 to master";
   sem_give,semkey,0;
-  pyk,"done_init = 1";
 }
 
-//
 // wrapper functions
-//
 
 func next_stage(void)
 {
   shm_write,shmkey,"next_stage",&([1]);
 }
 
+
 func opra_stop(void)
 {
   shm_write,shmkey,"stop",&([1]);
 }
 
+
 func opra_quit(void)
 {
   shm_write,shmkey,"stop",&([1]);
   shm_write,shmkey,"quit?",&([1]);
-  write,format="%s\n","Quit queued";
+  // write,format="%s\n","Quit queued";
 }
 
 
 func opra_gui_plots(void)
 {
-  read_data_from_master,a,op,opp,mircube;
+  require,"opra_utils.i";
+  read_opra_struct_from_shm,a,op,opp,mircube;
   opra_info_and_plots,a,opp,op,noprint=1;
   if (opp.modes_type=="yao") {
     window,opp.winnum+opp.npos;
@@ -76,35 +85,17 @@ func opra_gui_plots(void)
   }
 }
 
-// restore original quit behavior:
-quit = original_quit;
-
-func opra_gui_poll(void)
-{
-  // check if we have to quit:
-  if (shm_read(shmkey,"quit?")(1)) {
-    write,format="%s\n","Fork quitting";
-    pyk,"on_quit_requested()";
-    shm_write,shmkey,"quit!",&([1]);
-    quit;
-  }
-
-  // check if we have to do plots:
-  if (shm_read(shmkey,"do plots")(1)) {
-    shm_write,shmkey,"do plots",&([0]);
-    status = opra_gui_plots();
-  }
-
-  after,0.05,opra_gui_poll;
-}
-opra_gui_poll;
 
 func fork_quit(void)
 {
+  if (_pyk_proc==[]) return;
+  // write,format="%s\n","Fork quitting";
+  _pyk_proc,"on_quit_requested()\n";
   _pyk_proc = [];
+  shm_write,shmkey,"quit!",&([1]);
   quit;
 }
-after_error = fork_quit;
+
 
 // main stuff:
 pyk_debug=0;
@@ -112,9 +103,9 @@ pyk_debug=0;
 // build command
 python_exec = find_in_path("../python/opra_gui.py",takefirst=1);
 path_to_glade = dirname(find_in_path("../glade/opra_gui.glade",takefirst=1))+"/";
+// pyk_cmd=[python_exec,path_to_glade,"21","140","1"];
 pyk_cmd=[python_exec,path_to_glade,swrite(format="%d",opp.npos), \
          swrite(format="%d",fdpi),swrite(format="%d",(opp.modes_type=="yao"))];
 
 // spawn it and attach to _pyk_callback (see pyk.i):
 _pyk_proc = spawn(pyk_cmd, _pyk_callback);
-

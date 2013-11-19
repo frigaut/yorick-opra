@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # authors: Matthieu Bec, Francois Rigaut
 # opra.py
 
@@ -76,8 +76,6 @@ class opra:
       self.py2yo('opra_win_init %s' % swid)
       # run
       gtk.main()
-
-   done_init = 0
 
    def on_about_activate(self,wdg):
       dialog = self.glade.get_widget('aboutdialog')
