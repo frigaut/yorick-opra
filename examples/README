@@ -1,0 +1,22 @@
+To run the included examples:
+
+opra_test6 uses a serie of Gemini images (NIRI). Run it with:
+yorick -i opra_test6.i
+
+To run the other examples, you need to create the test synthetic images first:
+
+yorick -i gen_test3_images.i  (does for test 1 through 3)
+yorick -i gen_test4_images.i
+yorick -i gen_test5_images.i
+
+then you can run the example per-se:
+yorick -i opra_test1.i Single direction, 3 images, uses GTK GUI
+yorick -i opra_test2.i Single direction, 3 images, does not uses GTK GUI
+yorick -i opra_test3.i Tomography w/ 5 dir., 3 images each, uses GTK GUI
+yorick -i opra_test4.i Tomography w/ 5 dir., 3 images each, does not uses GTK GUI
+yorick -i opra_test5.i Tomography w/ 5 dir., 3 images each, uses GTK GUI
+
+As said above, some tests require gtk, so if you don't have gtk they 
+will fail.
+
+
