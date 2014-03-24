@@ -242,6 +242,7 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
     ipupr = long(ceil(a.pupd)/2.)+1;
     // compute phase w/o TT:
     pha = opp.phase(,,n) * 0.;
+    if (phase_offset!=[]) pha += phase_offset;
     if (has_yao) {
       pha = opp.phase(,,n);
       // remove TT (only on first DM):

@@ -27,29 +27,37 @@ nmodes_max4printout = 30;
 OPRA_VERSION = "1.9.9";
 
 func opra(images, defocs, lambda, pixsize, teldiam,
-          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, kernd=,
-          fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, fix_cobs=,
-          first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, nm=)
+          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, 
+          kernd=, fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, 
+          fix_cobs=, first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, 
+          nm=)
 /* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam,
                  nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=,
-                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=,
-                 winnum=, dpi=, pal=, gui=, svipc=, nm=)
-   images:         Image data cube (data). These must be at least Shannon (Nyquist)
-                   sampled, ideally 2x Shannon or more.
+                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, 
+                 first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, nm=)
+   images:         Image data cube (data). These must be at least Shannon
+                   sampled, ideally 2x Shannon (Nyquist) or more.
    defocs:         Vector of estimate of defocus for each image (in radians)
    lambda:         Image wavelength (meter)
    pixsize:        Image pixel size (arcsec)
    teldiam:        Telescope (optics) diameter (meter)
-   nmodes=         Number of modes to include in the phase estimate (default 120)
-   use_mode=       Can be set to 'zernike' or 'dh' of 'kl' modes (default DH).
-                   This can also be set to 'yao' for use of yao machinery (kind of
-                   advanced mode and poorly documented as of Sep2011)
+   nmodes=         Number of modes to include in the phase estimate (def. 120)
+   use_mode=       Can be set to 'zernike' or 'dh' of 'kl' modes (default DH)
+                   This can also be set to 'yao' for use of yao machinery (kind 
+                   of advanced mode and poorly documented as of Sep2011)
+                   Can also be set to "user", in which case the user has to 
+                   supply a replacement for 
+                   opra_gen_modes_new(dim,pupd,nmodes,mode_type=)
+                   that returns (and define extern) modes_cube. Has to be 
+                   redefined after including opra. nmodes has to be defined 
+                   accordingly. Can be useful to work on actuators without 
+                   having to redefine the whole yao parameters to match pupil.
    cobs=           Optics central obstruction, in unit of optics outer diameter
                    (i.e. 0.1 would mean the central obstruction diameter is
                    10% of the optics/pupil/telescope outer diameter). Default 0.
-   noise=          rms of noise in input images (one number, it is assumed the noise
-                   is the same in all images). This is just used for display, not
-                   used in the phase estimation. Default 0.
+   noise=          rms of noise in input images (one number, it is assumed the 
+                   noise is the same in all images). This is just used for 
+                   display, not used in the phase estimation. Default 0.
    pupd=           Force pupil diameter in pixels
    progressive=    Introduce modes slower than regular version (more steps)
    niter=          Set maximum number of iteration
@@ -60,7 +68,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
                    Note that only the global multiplier to the provided defoc
                    values is ever adjusted.
    fix_cobs=       1 if cobs should not be a free parameter
-   fix_diff_tt=    1 if differential TT between images shoud not be a free parameter
+   fix_diff_tt=    1 if differential TT between images shoud not be a free param.
    first_nofit_astig= 1 if astig should not belong to the initial run
    winnum=         Output graphical window number
    dpi=            Output graphical window dpi
@@ -170,6 +178,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   else if (use_mode == "kl")  opp.modes_type = "kl";
   else if (use_mode == "yao") opp.modes_type = "yao";
   else if (use_mode == "dh")  opp.modes_type = "dh";
+  else if (use_mode == "user")  opp.modes_type = "user";
   else error,"use_mode not defined";
 
 
@@ -273,7 +282,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
     if (niter) nitv(2) = niter; else nitv(2) = 30;
   }
 
-  if (use_mode=="yao") { // Can't do progressive with yao (see comment below)
+  if ((use_mode=="yao")|(use_mode=="user")) { // Can't do progressive with yao (see comment below)
     if (!(allof(dm.type=="dh")||allof(dm.type=="kl")||allof(dm.type=="zernikes"))) {
       nmodesv = [opp.ncoefs,opp.ncoefs];
       // above: has to be, we don't know "modes" are modal (could be zonal)
@@ -338,6 +347,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
     }
     if (nmodesv(1)<opp.ncoefs) (*(*fit.coefs)(1))(nmodesv(1)+1:) = 0;
   }
+  if (use_mode=="user") *((*fit.coefs)(1)) = 1;
 
   // get reference
   // extern all_otf_ref, a_ref;
@@ -351,7 +361,9 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   // increase nmodes gently
   for (n=2;n<=numberof(nmodesv);n++) {
     aold = sdimold = [];
-    if (use_mode!="yao") (*a.coefs)(1) = &( _(*(*a.coefs)(1),array(0,nmodesv(n)-nmodesv(n-1))) );
+    if ((use_mode!="yao")&(use_mode!="user")) {
+      (*a.coefs)(1) = &( _(*(*a.coefs)(1),array(0,nmodesv(n)-nmodesv(n-1))));
+    }
     opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                         passn++,nmodesv(n));
 
@@ -402,7 +414,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   opp.pupd = opp.pupd+atan(a.pupd)*5;
 
   write,format="Elapsed time = %f sec\n",tac();
-  return opp;
+  return _(&opp,&op,&data,&a);
 }
 
 
@@ -557,11 +569,12 @@ func opra_foo(x,b)
   for (n=1;n<=opp.npos;n++) {
 
     opp.phase(,,n) *= 0;
+    if (phase_offset!=[]) opp.phase(,,n) = phase_offset;
 
     if (opp.modes_type=="yao") {
       wdim = dimsof(*wfs(n)._fimage)(2);
       n12 = _(opp.otf_dim/2-wdim/2+1,opp.otf_dim/2+wdim/2);
-      opp.phase(n12(1):n12(2),n12(1):n12(2),n) = *wfs(n)._fimage;
+      opp.phase(n12(1):n12(2),n12(1):n12(2),n) += *wfs(n)._fimage;
     } else {
       // FIXME multiple positions? nope.
       az = *(*a.coefs)(1);
