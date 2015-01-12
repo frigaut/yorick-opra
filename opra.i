@@ -24,7 +24,7 @@ require,"opra_utils.i";   // plots, util functions.
 
 nmodes_max4printout = 30;
 
-OPRA_VERSION = "1.9.9";
+OPRA_VERSION = "2.1";
 
 func opra(images, defocs, lambda, pixsize, teldiam,
           nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, kernd=,
