@@ -88,9 +88,14 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   extern has_svipc;
   extern want_nanometer;
 
-  if (svipc!=[]) has_svipc=svipc; \
-  else if ((find_in_path("svipc.i")!=[])&&(gui)) has_svipc=1;
-  if (find_in_path("svipc.i")==[]) has_svipc=0;
+  // NO, svipc is too fragile. Let's not impose it by default:
+  if (svipc==[]) svipc=has_svipc=0;
+  else if (svipc==0) has_svipc=0;
+  else {
+    if (svipc!=[]) has_svipc=svipc; \
+    else if ((find_in_path("svipc.i")!=[])&&(gui)) has_svipc=1;
+    if (find_in_path("svipc.i")==[]) has_svipc=0;
+  }
 
   //#################################
   // Initialize some general variables

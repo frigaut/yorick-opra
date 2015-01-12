@@ -8,9 +8,9 @@ require,"yao.i";
 aoread,"opra_test3.par";
 
 sim.verbose=0;
-aoinit,disp=1,clean=1;
+aoinit,disp=0,clean=1;
 loop.gain=0.;
-aoloop,disp=1;
+aoloop,disp=0;
 go,20,all=1;
 // (*dm(3)._command)(26) = 0.2; // units are in microns. so in rd would be 2*pi/target.lambda= this * 3.801
 // (*dm(3)._command)(9) = 0.1; // units are in microns. so in rd would be 2*pi/target.lambda= this * 3.801
@@ -26,12 +26,12 @@ random_seed,0.424;
 (*dm(2)._command)(5) = 0;
 // (*dm(3)._command)(1:3) = 0; (*dm(3)._command)(5) = 0;
 go,10,all=1;
-hitReturn;
+// hitReturn;
 fits_write,"opra_test3.foc0.fits",im,overwrite=1;
 prepzernike,sim._size,sim.pupildiam,sim._cent,sim._cent;
 add_dm0_shape = zernike_ext(4)*0.6; // same, that means 0.4*3.801 = 1.52
 go,10,all=1;
-hitReturn;
+// hitReturn;
 fits_write,"opra_test3.focp0.4.fits",im,overwrite=1;
 add_dm0_shape = -zernike_ext(4)*0.6;
 go,10,all=1;
