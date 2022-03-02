@@ -217,7 +217,13 @@ func _pyk_callback(line)
   nofline = numberof(line);
 
   /* parse and execute yorick command lines */
-  for (i=1 ; i<=nofline ; i++) funcdef(line(i));
+  for (i=1 ; i<=nofline ; i++) {
+    if (strmatch(line(i),"Yao")) continue;
+    if (strmatch(line(i),"Found")) continue;
+    if (strmatch(line(i),"Use")) continue;
+    if (strmatch(line(i),"Yeti")) continue;
+    funcdef(line(i));
+  }
 
   /* permit pyk function to continue after successful synchronization */
   if (synchronized && _pyk_sync) {

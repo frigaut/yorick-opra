@@ -29,7 +29,7 @@ func opra_win_init(xid,..)
   winnum = opp.winnum;
   for (n=1;n<=opp.npos;n++) {
     winn = winnum+n-1;
-    if (window_exists(winn)) { winkill,winn;}
+    if (window_exists(winn)) winkill,winn;
     window,winn,wait=0,style="opra.gs",dpi=fdpi,width=0,height=0,parent=xids(n);
     if (pal) palette,pal;
     for (i=1;i<=3;i++) { plsys,i; limits,square=1; }

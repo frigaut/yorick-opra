@@ -3,8 +3,8 @@
 sim.name          = "Gemini MCAO system w/ DH WFSs and DMs";
 sim.pupildiam     = 30;
 sim.debug         = 0;
-sim.verbose       = 1;
-sim.pupilapod     = 1;
+sim.verbose       = 0;
+sim.pupilapod     = 0;
 
 //-------------------------------
 atm.dr0at05mic    = 1;
@@ -25,6 +25,7 @@ for (n=1;n<=5;n++) {
  wfs(n).subsystem = 1;
  wfs(n).ndh       = ndh_wfs;
  wfs(n).lambda    = 0.589;
+ wfs(n).dispzoom  = 0.6;
 }
 
 wfs(1).gspos      = [   0 ,  0];

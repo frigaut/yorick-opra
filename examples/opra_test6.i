@@ -10,10 +10,13 @@ nmodesmax = 21;
 nmodesmax = 210;
 nmodesmax = 100;
 
+require,"yao.i";
+aoread,"opra_test3.par";
+
 imcube = fits_read("gemini_niri.fits");
 subset = [1,3,5,7,9,11,13,15];
 allfocs = allfocs(subset);
 
 opp = opra(imcube,allfocs,lambda,pixsize,7.9,nmodes=nmodesmax,use_mode=modes,\
   noise=0.0,cobs=0.15,progressive=1,first_nofit_astig=0,fix_kern=0,fix_pix=0,\
-  niter=10,fix_defoc=0,dpi=140,gui=0,nm=1);
+  niter=10,fix_defoc=0,dpi=default_dpi,gui=0,nm=1);

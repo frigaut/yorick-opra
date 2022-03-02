@@ -35,7 +35,7 @@ default= { legend= 0,
 
 system= { legend= "System 0" }
 system= { legend= "System 0",
-  viewport= { 0.13, 0.66, 0.64, 0.88 },
+  viewport= { 0.13, 0.66, 0.52, 0.88 },
   ticks= {
 
     horiz= {
@@ -48,7 +48,7 @@ system= { legend= "System 0",
       textStyle= { color= 254, font= 0x08, height= 0.004674,
         orient= 0, alignH= 0, alignV= 0, opaque= 0 }}}}
 system= { legend= "System 0",
-  viewport= { 0.51, 0.65, 0.49, 0.63 },
+  viewport= { 0.54, 0.66, 0.38, 0.50 },
   ticks= {
 
     horiz= {
@@ -61,7 +61,7 @@ system= { legend= "System 0",
       textStyle= { color= 254, font= 0x08, height= 0.005643,
         orient= 0, alignH= 0, alignV= 0, opaque= 0 }}}}
 system= { legend= "System 0",
-  viewport= { 0.50, 0.66, 0.385, 0.465 },
+  viewport= { 0.35, 0.52, 0.39, 0.49 },
   ticks= {
 
     horiz= {

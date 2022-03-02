@@ -46,7 +46,7 @@ class opra:
       swid = ""
       for i in range(ntab):
          darea = gtk.DrawingArea()
-         darea.set_size_request(6*dpi,6*dpi)
+         darea.set_size_request(6*dpi+3,6*dpi+27)
          bufferl = " %d " % (i+1)
          darea.show()
          label = gtk.Label(bufferl)
@@ -56,7 +56,7 @@ class opra:
 
       if is_yao:
          darea = gtk.DrawingArea()
-         darea.set_size_request(6*dpi,6*dpi)
+         darea.set_size_request(6*dpi+3,6*dpi+27)
          bufferl = "DM"
          darea.show()
          label = gtk.Label(bufferl)
@@ -64,7 +64,7 @@ class opra:
          swid = swid+str(darea.window.xid)+" ";
 
          darea = gtk.DrawingArea()
-         darea.set_size_request(6*dpi,6*dpi)
+         darea.set_size_request(6*dpi+3,6*dpi+27)
          bufferl = "Geometry"
          darea.show()
          label = gtk.Label(bufferl)

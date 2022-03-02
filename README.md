@@ -17,16 +17,16 @@ OPRA specificity includes:
   v1.5, one can use a set of images to reconstruct the phase
   aberration tomography using a set of modes at various altitudes.
 
-OPRA was developed within the work on the GEMINI MCAO system.
+OPRA was developed within the framework on the GEMINI MCAO system.
 
 
 ## AUTHORS
 OPRA, Francois Rigaut (c) 2010-2011
 
 Authors:
-Francois Rigaut    frigaut@gemini.edu  
-Benoit Neichel     bneichel@gemini.edu  
-Damien Gratadour   damien.gratadour@obspm.fr  
+Francois Rigaut    frigaut@gemini.edu
+Benoit Neichel     bneichel@gemini.edu
+Damien Gratadour   damien.gratadour@obspm.fr
 
 
 ## LICENSE
@@ -57,7 +57,8 @@ mode requires it), you will need yao installed.
 
 ## TEST IT / USE IT
 
-There are a few test cases in the examples directory
+There are a few test cases in the examples directory. Look at the README
+file in this directory for more details.
 
     yorick -i opra_test1.i
 
@@ -74,3 +75,4 @@ generate the data set before running the analysis:
 (obviously replace 3 by 4 or 5 to run the other cases).
 test3 is with 2DMs. test4 is with 3DMs. test5 adds noise to test4.
 
+* opra_test6.i uses images from the Gemini NIRI imager.

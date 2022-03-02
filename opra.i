@@ -24,40 +24,32 @@ require,"opra_utils.i";   // plots, util functions.
 
 nmodes_max4printout = 30;
 
-OPRA_VERSION = "1.9.9";
+OPRA_VERSION = "2.5";
 
 func opra(images, defocs, lambda, pixsize, teldiam,
-          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, 
-          kernd=, fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, 
-          fix_cobs=, first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, 
-          nm=)
+          nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=, kernd=,
+          fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, fix_cobs=,
+          fullfit_only=, first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, nm=)
 /* DOCUMENT opra(images, defocs, lambda, pixsize, teldiam,
                  nmodes=, use_mode=, cobs=, noise=, pupd=, progressive=, niter=,
-                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, 
-                 first_nofit_astig=, winnum=, dpi=, pal=, gui=, svipc=, nm=)
-   images:         Image data cube (data). These must be at least Shannon
-                   sampled, ideally 2x Shannon (Nyquist) or more.
+                 fix_amp=, fix_pix=, fix_kern=, fix_defoc=, fix_diff_tt=, first_nofit_astig=,
+                 winnum=, dpi=, pal=, gui=, svipc=, nm=)
+   images:         Image data cube (data). These must be at least Shannon (Nyquist)
+                   sampled, ideally 2x Shannon or more.
    defocs:         Vector of estimate of defocus for each image (in radians)
    lambda:         Image wavelength (meter)
    pixsize:        Image pixel size (arcsec)
    teldiam:        Telescope (optics) diameter (meter)
-   nmodes=         Number of modes to include in the phase estimate (def. 120)
-   use_mode=       Can be set to 'zernike' or 'dh' of 'kl' modes (default DH)
-                   This can also be set to 'yao' for use of yao machinery (kind 
-                   of advanced mode and poorly documented as of Sep2011)
-                   Can also be set to "user", in which case the user has to 
-                   supply a replacement for 
-                   opra_gen_modes_new(dim,pupd,nmodes,mode_type=)
-                   that returns (and define extern) modes_cube. Has to be 
-                   redefined after including opra. nmodes has to be defined 
-                   accordingly. Can be useful to work on actuators without 
-                   having to redefine the whole yao parameters to match pupil.
+   nmodes=         Number of modes to include in the phase estimate (default 120)
+   use_mode=       Can be set to 'zernike' or 'dh' of 'kl' modes (default DH).
+                   This can also be set to 'yao' for use of yao machinery (kind of
+                   advanced mode and poorly documented as of Sep2011)
    cobs=           Optics central obstruction, in unit of optics outer diameter
                    (i.e. 0.1 would mean the central obstruction diameter is
                    10% of the optics/pupil/telescope outer diameter). Default 0.
-   noise=          rms of noise in input images (one number, it is assumed the 
-                   noise is the same in all images). This is just used for 
-                   display, not used in the phase estimation. Default 0.
+   noise=          rms of noise in input images (one number, it is assumed the noise
+                   is the same in all images). This is just used for display, not
+                   used in the phase estimation. Default 0.
    pupd=           Force pupil diameter in pixels
    progressive=    Introduce modes slower than regular version (more steps)
    niter=          Set maximum number of iteration
@@ -68,7 +60,8 @@ func opra(images, defocs, lambda, pixsize, teldiam,
                    Note that only the global multiplier to the provided defoc
                    values is ever adjusted.
    fix_cobs=       1 if cobs should not be a free parameter
-   fix_diff_tt=    1 if differential TT between images shoud not be a free param.
+   fix_diff_tt=    1 if differential TT between images shoud not be a free parameter
+   fullfit_only=   1 to skip initial fit with a reduced number of modes
    first_nofit_astig= 1 if astig should not belong to the initial run
    winnum=         Output graphical window number
    dpi=            Output graphical window dpi
@@ -143,7 +136,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   // fwhm_estimate is used to compute a starting value for pupil
   // diameter (pupd, in pixels)
   fwhm_estimate = lambda/teldiam/4.848e-6/pixsize;
-  pupdiam = (im_dim/2.)*(2./fwhm_estimate);
+  pupdiam = (im_dim/2.)*(2./fwhm_estimate)*0.95; // 0.95 ad hoc factor.
 
   if (!pupd) {
     psize_corr = round(pupdiam)/pupdiam;
@@ -178,7 +171,6 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   else if (use_mode == "kl")  opp.modes_type = "kl";
   else if (use_mode == "yao") opp.modes_type = "yao";
   else if (use_mode == "dh")  opp.modes_type = "dh";
-  else if (use_mode == "user")  opp.modes_type = "user";
   else error,"use_mode not defined";
 
 
@@ -268,7 +260,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
     if (use_mode=="yao") nmodesv = nm = max(opp.ncoef_per_dm)
     while ((nm=nm/2)>15) grow,nmodesv,nm;
     if (is_scalar(nmodesv)) nmodesv=[nmodesv];
-    nmodesv = _(6,nmodesv(::-1));
+    nmodesv = _(10,nmodesv(::-1));
     if (niter) {
       nitv    = array(niter,numberof(nmodesv));// 10iteration max (?)
       nitv(2) = niter*2;
@@ -277,12 +269,12 @@ func opra(images, defocs, lambda, pixsize, teldiam,
       nitv(2) = 20;//we want more iterations on the low order aberrations
     }
   } else {
-    nmodesv = _(6,opp.ncoefs);
-    nitv    = array(10,numberof(nmodesv));// 10iteration max (?)
+    nmodesv = _(10,opp.ncoefs);
+    nitv    = array(4,numberof(nmodesv));// 10iteration max (?)
     if (niter) nitv(2) = niter; else nitv(2) = 30;
   }
 
-  if ((use_mode=="yao")|(use_mode=="user")) { // Can't do progressive with yao (see comment below)
+  if (use_mode=="yao") { // Can't do progressive with yao (see comment below)
     if (!(allof(dm.type=="dh")||allof(dm.type=="kl")||allof(dm.type=="zernikes"))) {
       nmodesv = [opp.ncoefs,opp.ncoefs];
       // above: has to be, we don't know "modes" are modal (could be zonal)
@@ -300,6 +292,28 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   a.stfmaskd = -100.;
   opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                       passn++,nmodesv(1));
+
+  // TEST 2022-02-28
+  // filter some parameters. Use fit keyword of lmfit.
+  fit = fresh_a(opp,val=1);
+  fit.pupd     = 0;
+  fit.cobs     = 0;
+  fit.kernd    = [1,1,1]*0;
+  fit.stfmaskd = 0;
+  if (fix_amp)   *fit.amps = 0;
+  if (fix_pix)   fit.psize = 0;
+  if (fix_kern)  fit.kernd = [0,0,0];
+  if (fix_defoc) fit.defoc_scaling = 0;
+  if (fix_cobs)  fit.cobs = 0;
+  // We want to peg first in-focus image:
+  (*fit.diff_tt) = 1;
+  (*fit.diff_tt)(,1,1) = 0;
+  for (nm=1;nm<=ndm;nm++) (*(*fit.coefs)(nm)) = 0;
+  // This is the call to center eveything.
+  res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
+                   tol=1e-6,eps=0.01,itmax=3,aregul=0.);
+  for (nm=1;nm<=ndm;nm++) (*(*fit.coefs)(nm)) = 1;
+  // END of TEST - conclusive, this'll stay.
 
   // filter some parameters. Use fit keyword of lmfit.
   fit = fresh_a(opp,val=1);
@@ -347,23 +361,23 @@ func opra(images, defocs, lambda, pixsize, teldiam,
     }
     if (nmodesv(1)<opp.ncoefs) (*(*fit.coefs)(1))(nmodesv(1)+1:) = 0;
   }
-  if (use_mode=="user") *((*fit.coefs)(1)) = 1;
 
   // get reference
   // extern all_otf_ref, a_ref;
   // all_otf_ref = opra_foo(x,a);
   // a_ref = a;
   // call lmfit
-  res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
-                   tol=1e-6,eps=0.01,itmax=nitv(1),aregul=0.);
+  if (!fullfit_only) {
+    res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
+                     tol=1e-6,eps=0.01,itmax=nitv(1),aregul=0.);
+  }
   if (stop_all) goto fin;
 
   // increase nmodes gently
+  // write,nmodesv,nitv; error;
   for (n=2;n<=numberof(nmodesv);n++) {
     aold = sdimold = [];
-    if ((use_mode!="yao")&(use_mode!="user")) {
-      (*a.coefs)(1) = &( _(*(*a.coefs)(1),array(0,nmodesv(n)-nmodesv(n-1))));
-    }
+    if (use_mode!="yao") (*a.coefs)(1) = &( _(*(*a.coefs)(1),array(0,nmodesv(n)-nmodesv(n-1))) );
     opp.action = swrite(format="Pass %d: masks + aberrations up to %d",\
                         passn++,nmodesv(n));
 
@@ -399,10 +413,10 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   }
 
   // FIXME FIXME, just for test
-  write,"FIXME FIXME FIXME !!";
-  fit.psize=1;
-  res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
-                   tol=1e-14,eps=0.01,itmax=5,aregul=0.);
+  // write,"FIXME FIXME FIXME !!";
+  // fit.psize=1;
+  // res = lmfit_wrap(opra_foo,x,a,data,opp,fit=fit,\
+  //                  tol=1e-14,eps=0.01,itmax=5,aregul=0.);
 
   fin:
 
@@ -414,7 +428,7 @@ func opra(images, defocs, lambda, pixsize, teldiam,
   opp.pupd = opp.pupd+atan(a.pupd)*5;
 
   write,format="Elapsed time = %f sec\n",tac();
-  return _(&opp,&op,&data,&a);
+  return opp;
 }
 
 
@@ -490,7 +504,7 @@ func opra_foo(x,b)
       prepzernike,sim._size,sim.pupildiam,sim._cent,sim._cent;
     } else {
       if (aold.pupd!=a.pupd) {
-        write,"Generating modes";
+        write,format="%s\n","Change of pupd: Generating modes";
         opp.modes = &( opra_gen_modes(opp.otf_dim,a.pupd,nmodes,       \
                                       mode_type=opp.modes_type));
       }
@@ -569,12 +583,11 @@ func opra_foo(x,b)
   for (n=1;n<=opp.npos;n++) {
 
     opp.phase(,,n) *= 0;
-    if (phase_offset!=[]) opp.phase(,,n) = phase_offset;
 
     if (opp.modes_type=="yao") {
       wdim = dimsof(*wfs(n)._fimage)(2);
       n12 = _(opp.otf_dim/2-wdim/2+1,opp.otf_dim/2+wdim/2);
-      opp.phase(n12(1):n12(2),n12(1):n12(2),n) += *wfs(n)._fimage;
+      opp.phase(n12(1):n12(2),n12(1):n12(2),n) = *wfs(n)._fimage;
     } else {
       // FIXME multiple positions? nope.
       az = *(*a.coefs)(1);
@@ -653,8 +666,9 @@ func opra_foo(x,b)
 
 if (original_quit==[]) original_quit = quit;
 
-func opra_quit(void)
+func opra_quit(void,just_fork=)
 {
+  extern quit;
   write,format="%s\n","Asking fork to quit";
   // notify fork to quit:
   _yorick_gui_proc,"fork_quit\n";
@@ -664,7 +678,8 @@ func opra_quit(void)
   write,format="%s\n","Cleaning up svipc";
   shm_cleanup,shmkey;
   sem_cleanup,semkey;
-  original_quit;
+  if (!just_fork) original_quit;
+  else quit = original_quit; // restore normality
 }
 
 func poll_quit(void)

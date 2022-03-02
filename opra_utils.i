@@ -180,26 +180,22 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
     window,opp.winnum+n-1;
     plsys,0;
     fma;
+    if (!hsf) hsf=1.0; // height scale factor
 
-    pli,(abs(all));
-    plt,"OTFs (re,im,re,im...)",0.145,0.635,tosys=0,height=10;
-    plt,"Data<- Model ->Diff",0.130,0.535,orient=1,tosys=0,height=8,justify="CA";
+    if (0) {
+      pli,(abs(all));
+      plt,"OTFs (re,im,re,im...)",0.145,0.635,tosys=0,height=hsf*10;
+      plt,"Data<- Model ->Diff",0.130,0.535,orient=1,tosys=0,height=hsf*8,justify="CA";
+    }
 
-    plt,opp.action,0.145,0.90,tosys=0,height=12;
+    plt,opp.action,0.145,0.90,tosys=0,height=hsf*12;
     txt = swrite(format="Iterations: %d/%d, total %d",lmfititer_pass,     \
                  lmfit_itmax,lmfititer);
-    plt,txt,0.655,0.90,tosys=0,height=10,justify="RA";
+    plt,txt,0.655,0.90,tosys=0,height=hsf*10,justify="RA";
 
     // Images: data and model
     plsys,2;
     for (i=1;i<=opp.nim;i++) {
-      if (opp.nim<=2) {
-        pli,op(i,n).psf_data,2*(i-1),0,2*(i-1)+1,1;
-        plt,"Data",2*(i-1)+0.5,1,tosys=2,height=8,justify="CT",color="white";
-      } else {
-        pli,op(i,n).psf_data,(i-1),0,(i-1)+1,1;
-        plt,"Data",(i-1)+0.5,1,tosys=2,height=6,justify="CT",color="white";
-      }
       // Now model image. Remember? We have to apply the object
       // mask (see note in opra.i). For better eye comparison with
       // data, I chose to also rebin and put some noise:
@@ -207,16 +203,47 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       otf2.re = roll(op(i,n).otf(,,1));
       otf2.im = -roll(op(i,n).otf(,,2));
       psf = roll((fft(otf2,-1)).re)/opp.otf_sdim^2.;
+      // psf = roll((abs(fft(otf2,-1))))/opp.otf_sdim^2.;
       psf = spline2(psf,opp.im_dim,opp.im_dim);
       // psf = psf/sum(psf);
-      psf = psf+gaussdev(dimsof(psf))*op(i,n).noise;
-      psf = clip(psf,0.,);
+      psf2 = psf+gaussdev(dimsof(psf))*op(i,n).noise;
+      psf2 = clip(psf2,0.,);
+      // compute psf difference (added 2022-02-24)
+      // psf = psf - min(psf);
+      psf_data = op(i,n).psf_data;
+      // psf_data = psf_data-avg(psf_data);
+      require,"astro_util1.i"; // for sky
+      // psf *= (1./(1.14657*1.047)); // this seems to have to do with the pupdiam.
+      // psf = psf + avg(psf_data);
+      // write,minmax(psf),minmax(psf_data);
+      psf_data -= sky(psf_data);
+      psf -= sky(psf);
+      psf = psf*sum(psf_data)/sum(psf);
+      psfdif = psf_data-psf;
+
+      // all = transpose(_(transpose(op(i,n).psf_data),transpose(psf),transpose(psfdif)));
+      if (opp.nim>2) {
+        all = _(psf_data,psf,psfdif);
+        pli,all,(i-1),0,(i-1)+1,3;
+        plt,"Data",(i-1)+0.05,1-0.05,tosys=2,height=hsf*7,justify="LT",color="white";
+        plt,"Model",(i-1)+0.05,2-0.05,tosys=2,height=hsf*7,justify="LT",color="white";
+        plt,"Diff",(i-1)+0.05,3-0.05,tosys=2,height=hsf*7,justify="LT",color="white";
+        continue;
+      }
+
       if (opp.nim<=2) {
-        pli,psf,2*(i-1)+1,0,2*(i-1)+2,1;
-        plt,"Model",2*(i-1)+1.5,1,tosys=2,height=8,justify="CT",color="white";
+        pli,op(i,n).psf_data,2*(i-1),0,2*(i-1)+1,1;
+        plt,"Data",2*(i-1)+0.5,1,tosys=2,height=hsf*9,justify="CT",color="white";
       } else {
-        pli,psf,(i-1),1,(i-1)+1,2;
-        plt,"Model",(i-1)+0.5,2,tosys=2,height=6,justify="CT",color="white";
+        pli,op(i,n).psf_data,(i-1),0,(i-1)+1,1;
+        plt,"Data",(i-1)+0.5,1,tosys=2,height=hsf*7,justify="CT",color="white";
+      }
+      if (opp.nim<=2) {
+        pli,psf2,2*(i-1)+1,0,2*(i-1)+2,1;
+        plt,"Model",2*(i-1)+1.5,1,tosys=2,height=hsf*9,justify="CT",color="white";
+      } else {
+        pli,psf2,(i-1),1,(i-1)+1,2;
+        plt,"Model",(i-1)+0.5,2,tosys=2,height=hsf*7,justify="CT",color="white";
         // cw = current_window();
         // window,2,wait=1;
         //       motf = array(complex,dimsof(op(1,n).otf(,,1)));
@@ -224,10 +251,20 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
         //       motf.im = -roll(op(i,n).otf(,,2));
         //       mpsf = roll((fft(otf2,-1)).re)/opp.otf_sdim^2.;
         //        pli,op(i,n).psf_data-psf,(i-1),2,(i-1)+1,3;
-        // plt,"Data-Model",(i-1)+0.5,3,tosys=2,height=6,justify="CT",color="white";
+        // plt,"Data-Model",(i-1)+0.5,3,tosys=2,height=hsf*6,justify="CT",color="white";
       }
+      // write,"TTTTTTTTT",sum(psf),sum(op(i,n).psf_data);
+      // if (sum(psf)<0.) error;
+      if (opp.nim<=2) {
+        pli,psfdif,2*(i-1)+2,0,2*(i-1)+3,1;
+        plt,"Diff",2*(i-1)+2.5,1,tosys=2,height=hsf*9,justify="CT",color="white";
+      } else {
+        pli,psfdif,(i-1),2,(i-1)+1,3;
+        plt,"Diff",(i-1)+0.5,3,tosys=2,height=hsf*7,justify="CT",color="white";
+      }
+
     }
-    plt,"Images",0.145,0.882,tosys=0,height=10;
+    plt,"Images",0.145,0.882,tosys=0,height=hsf*10;
 
     // compute Strehl from psf image:
     // still to be done
@@ -242,7 +279,6 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
     ipupr = long(ceil(a.pupd)/2.)+1;
     // compute phase w/o TT:
     pha = opp.phase(,,n) * 0.;
-    if (phase_offset!=[]) pha += phase_offset;
     if (has_yao) {
       pha = opp.phase(,,n);
       // remove TT (only on first DM):
@@ -262,11 +298,11 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
     phase_rms = pha(where(opp.pupi))(rms);
     strehl = exp(-phase_rms^2.);
     dim = opp.otf_dim;
-    tmp = ((pha-iminmax(1))*opp.pupi)(dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
+    tmp = ((pha-iminmax(1))*(opp.pupi==1))(dim/2-ipupr+1:dim/2+ipupr,dim/2-ipupr+1:dim/2+ipupr);
     pli,tmp;
-    txt = swrite(format="Phase (%.2f->%.2f rd). Strehl=%.1f%%",iminmax(1),\
+    txt = swrite(format="Phase (%.2f->%.2f rd). S=%.1f%%",iminmax(1),\
                  iminmax(2),strehl*100.);
-    plt,txt,0.576,0.635,tosys=0,height=8,justify="CA";
+    plt,txt,0.54,0.503,tosys=0,height=hsf*7;
 
     // convergence plot
     if (numberof(itvec)>=2) {
@@ -275,26 +311,26 @@ func opra_info_and_plots(a,opp,op,noplots=,noprint=)
       range,min(distvec)*0.95,max(distvec)*1.05;
       logxy,0,1;
       txt = swrite(format="Convergence crit. (current=%.2e)",distvec(0));
-      plt,txt,0.50,0.474,tosys=0,height=8;
-      plt,"Distance to data",0.471,0.425,tosys=0,orient=1,height=8,justify="CA";
-      plt,"Iteration",0.58,0.357,tosys=0,height=8,justify="CA";
+      plt,txt,0.35,0.503,tosys=0,height=hsf*7;
+      plt,"Cost function",0.32,0.44,tosys=0,orient=1,height=hsf*7,justify="CA";
+      plt,"Iteration",0.42,0.365,tosys=0,height=hsf*7,justify="CA";
     }
-    ytop = 0.42; ydelta = 0.010; k = 0; xleft=0.125; hf = 7;
-    txt = swrite(format="Support diameter [pixels]          : %.2f",a.pupd);
-    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
-    txt = swrite(format="cobs [fraction of pupil diameter]  : %.3f",opp.cobs+cobs_multiplier*abs(a.cobs));
-    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
-    txt = swrite(format="Gaussian Kernel FWHM [pixels]      : %.2f %.2f %+.1f",abs(a.kernd(1))*2.35,abs(a.kernd(2))*2.35,a.kernd(3)*1e3);
-    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
+    ytop = 0.46; ydelta = 0.014*hsf; k = 0; xleft=0.125; hf = 7; mfont="courier";
+    txt = swrite(format="Suppo. diam [pix]: %.2f",a.pupd);
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hsf*hf,font=mfont;
+    txt = swrite(format="cobs [pdiam frac]: %.3f",opp.cobs+cobs_multiplier*abs(a.cobs));
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hsf*hf,font=mfont;
+    txt = swrite(format="Kern FWHM [pix]  : %.2f %.2f %+.1f",abs(a.kernd(1))*2.35,abs(a.kernd(2))*2.35,a.kernd(3)*1e3);
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hsf*hf,font=mfont;
     //  txt = swrite(format="Mask diameter [fixme]              : %.2f",abs(a.stfmaskd));
-    //  plt,txt,0.15,ytop-(k++)*ydelta,tosys=0,height=8,font="courier";
-    txt = swrite(format="Defocus scaling fact. [no units]   : %.2f",a.defoc_scaling);
-    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
-    txt = swrite(format="Pixel size scal. fact. [no units]  : %.2f",a.psize);
-    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
-    txt = swrite(format="Image ampl. scal. fact. [no units] : %.2f",(*a.amps)(1));
+    //  plt,txt,0.15,ytop-(k++)*ydelta,tosys=0,height=hsf*8,font=mfont;
+    txt = swrite(format="Defoc scal. fact.: %.2f",a.defoc_scaling);
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hsf*hf,font=mfont;
+    txt = swrite(format="Psize scal. fact.: %.2f",a.psize);
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hsf*hf,font=mfont;
+    txt = swrite(format="Image scal. fact.: %.2f",(*a.amps)(1));
     for (i=2;i<=opp.nim;i++) txt+=swrite(format=",%.2f",(*a.amps)(i));
-    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hf,font="courier";
+    plt,txt,xleft,ytop-(k++)*ydelta,tosys=0,height=hsf*hf,font=mfont;
   }
 
   //============================================
@@ -438,7 +474,7 @@ func plot_modes(mode_type)
   pli,array(1.,[2,100,100]),-0.5,-0.5,10.5,10.5;
   for (i=1;i<=nm;i++) {
     pli,mc(,,i),(i-1)%10,(i-1)/10,(i-1)%10+1,(i-1)/10+1;
-    plt,swrite(format="%d",i),(i-1)%10,(i-1)/10,tosys=1,height=6,opaque=0,color="black";
+    plt,swrite(format="%d",i),(i-1)%10,(i-1)/10,tosys=1,height=hsf*6,opaque=0,color="black";
   }
   limits,-0.5,10.5,-0.5,10.5;
 }
